@@ -1,0 +1,16 @@
+{
+  "name": "data-sketch",
+  "version": "1.0.0",
+  "description": "app for drawing with data",
+  "main": "src/index.js",
+  "repository": "git@github.com:paulsonnentag/data-sketch.git",
+  "author": "Paul Sonnentag <paul.sonnentag@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "start": "parcel src/index.js"
+  },
+  "devDependencies": {
+    "elm-hot": "^1.1.2",
+    "node-elm-compiler": "^5.0.4"
+  }
+}
