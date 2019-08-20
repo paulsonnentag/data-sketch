@@ -1,30 +1,35 @@
 import ds from 'datascript';
 import _ from 'lodash/fp';
 
+const singleCategory = _.uniqueId('category');
+const doubleCategory = _.uniqueId('category');
+const honeyMoonSuiteCategory = _.uniqueId('category');
+const presidentSuiteCategory = _.uniqueId('category');
+
 const facts =
     _.flatten([
         // CATEGORIES
-        getCategory('$single', {
+        getCategory(singleCategory, {
             name: 'single bed',
             description: 'just a single bed for one person',
         }),
-        getCategory('$double', {
+        getCategory(doubleCategory, {
             name: 'double bed',
             description: 'one double bed for up to two people',
         }),
-        getCategory('$honeyMoonSuite', {
+        getCategory(honeyMoonSuiteCategory, {
             name: 'Honey Moon suite',
             description: 'for a very special occasion',
         }),
-        getCategory('$presidentSuite', {
+        getCategory(presidentSuiteCategory, {
             name: 'President Suite',
             description: 'if you just don\'t care about money',
         }),
 
         // DISTRICTS
-        getDistrictWithRandomHotels('$downtown', { name: 'Downtown' }),
-        getDistrictWithRandomHotels('$eastSide', { name: 'East Side' }),
-        getDistrictWithRandomHotels('$westSide', { name: 'West Side' }),
+        getDistrictWithRandomHotels({ name: 'Downtown' }),
+        getDistrictWithRandomHotels({ name: 'East Side' }),
+        getDistrictWithRandomHotels({ name: 'West Side' }),
     ])
 
 const db = ds.init_db(facts)
@@ -37,7 +42,9 @@ function getCategory(category, { name, description }) {
     ]
 }
 
-function getDistrictWithRandomHotels(district, { name }) {
+function getDistrictWithRandomHotels({ name }) {
+    const district = _.uniqueId('district')
+
     return [
         [district, 'is kind of', 'district'],
         [district, 'has name', name],
@@ -49,7 +56,7 @@ function getDistrictWithRandomHotels(district, { name }) {
 function getRandomHotels({ district, numberOfHotels }) {
     return _.flatten(
         _.times(() => {
-            const hotel = ds.squuid();
+            const hotel = _.uniqueId('hotel');
 
             const basePrice = _.random(50, 300)
             const factor = _.random(1.2, 1.5)
@@ -60,18 +67,18 @@ function getRandomHotels({ district, numberOfHotels }) {
                 [hotel, 'is in district', district],
             ]
                 .concat(
-                    getRoomOffer({ hotel, category: '$single', price: basePrice })
+                    getRoomOffer({ hotel, category: singleCategory, price: basePrice })
                 )
                 .concat(
-                    getRoomOffer({ hotel, category: '$double', price: Math.round(basePrice * factor) }),
+                    getRoomOffer({ hotel, category: doubleCategory, price: Math.round(basePrice * factor) }),
                 )
                 .concat(
                     (basePrice > 100) ?
-                        getRoomOffer({ hotel, category: '$honeyMoonSuite', price: Math.round(basePrice * Math.pow(factor, 2)) }) : []
+                        getRoomOffer({ hotel, category: honeyMoonSuiteCategory, price: Math.round(basePrice * Math.pow(factor, 2)) }) : []
                 )
                 .concat(
                     (basePrice > 200) ?
-                        getRoomOffer({ hotel, category: '$presidenSuite', price: Math.round(basePrice * Math.pow(factor, 3)) }) : []
+                        getRoomOffer({ hotel, category: presidentSuiteCategory, price: Math.round(basePrice * Math.pow(factor, 3)) }) : []
                 )
             )
         }, numberOfHotels)
@@ -91,7 +98,7 @@ function randomHotelName(basePrice) {
 }
 
 function getRoomOffer({ hotel, category, price }) {
-    const roomOffer = ds.squuid()
+    const roomOffer = _.uniqueId('roomOffer')
 
     return [
         [hotel, 'offers', roomOffer],

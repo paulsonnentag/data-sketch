@@ -6,11 +6,15 @@ import ds from 'datascript';
 
 function App() {
   return (
-    <div>
-      <HotelsByDistrict />
+    <layout-group
+      data-width='500px'
+      data-top='50px'
+      data-center-x='window.center.x'
+    >
       <RoomOffers />
+      <HotelsByDistrict />
       <RoomCategories />
-    </div>
+    </layout-group>
   );
 }
 
@@ -23,7 +27,13 @@ function HotelsByDistrict() {
 
 
   return (
-    <Column represents="hotels">
+    <layout-group
+      data-flow="down"
+      data-represents="hotels"
+      data-left="roomOffers.right"
+      data-top="$this.parent.top"
+      data-right="$this.parent.right"
+    >
       {_.map((district) => {
 
         const hotels = _.map(([id, name]) => ({ id, name }), ds.q(`
@@ -34,25 +44,30 @@ function HotelsByDistrict() {
         `, db))
 
         return (
-          <Column represents={district.id}>
-            <Box represents={`${district.id}.name`} style={{ background: 'blue', color: '#fff' }}>
+          <layout-group
+            data-flow="down"
+            data-represents={district.id}
+          >
+            <layout-box
+              drepresents='name'
+              style={{ background: 'blue', color: '#fff' }}
+            >
               {district.name}
-            </Box>
+            </layout-box>
 
             {
               _.map((hotel) => (
-                <Box represents={hotel.id}>
+                <layout-box data-represents={hotel.id}>
                   {hotel.name}
-                </Box>
+                </layout-box>
               ), hotels)
             }
-          </Column>
+          </layout-group>
         )
       }, districts)}
-    </Column>
+    </layout-group>
   )
 }
-
 
 function RoomOffers() {
   const cateogories = _.map(([id]) => ({ id }), ds.q(`
@@ -61,22 +76,40 @@ function RoomOffers() {
   `, db))
 
   return (
-    <Row represents="roomOffers">
+    <layout-group
+      data-represents="roomOffers"
+      data-flow="right"
+      data-top="0px"
+      data-left="0px"
+      data-bottom="$this.parent.bottom"
+    >
       {_.map((category) => {
-        const roomOffers = _.map(([id, price]) => ({ id, price }), ds.q(`
-        [:find ?offer ?price 
+        const roomOffers = _.map(([id, price, hotelId]) => ({ id, price, hotelId }), ds.q(`
+        [:find ?offer ?price ?hotel
          :where [?offer "is kind of" "room offer"]
                 [?offer "has price" ?price]
-                [?offer "has category" "${category.id}"]]
+                [?offer "has category" "${category.id}"]
+                [?hotel "offers" ?offer]]
       `, db))
 
         return (
-          <Column represents={category.id}>
-            {_.map((roomOffer) => <Box represents={roomOffer.id}>$ {roomOffer.price}</Box>, roomOffers)}
-          </Column>
+          <layout-group
+            data-represents={category.id}
+            data-flow="down"
+          >
+            {_.map((roomOffer) => (
+              <layout-box
+                data-represents={roomOffer.id}
+                data-center-y={`hotels..${roomOffer.hotelId}.center.y`}
+                style={{ textAlign: 'right' }}
+              >
+                $ {roomOffer.price}
+              </layout-box>
+            ), roomOffers)}
+          </layout-group>
         );
       }, cateogories)}
-    </Row>
+    </layout-group>
   )
 }
 
@@ -89,52 +122,26 @@ function RoomCategories() {
   `, db))
 
   return (
-    <Column represents="category">
+    <layout-group
+      data-represents="category"
+      data-flow="down"
+      data-top="hotels.bottom"
+      data-right="hotels.right"
+    >
       {_.map((category) => {
         return (
-          <Row represents={category.id}>
-            <Box represents={`${category}.name`}>{category.name}</Box>
-            <Box represents={`${category}.decription`}>{category.description}</Box>
-          </Row>
+          <layout-group
+            data-represents={category.id}
+            data-flow="right"
+          >
+            <layout-box data-represents={`${category}.name`}>{category.name}</layout-box>
+            <layout-box data-represents={`${category}.decription`}>{category.description}</layout-box>
+          </layout-group>
         )
       }, categories)}
-    </Column>
+    </layout-group>
   )
 }
 
-// placeholder
-
-function Column({ children, style, represents }) {
-  return (
-    <layout-column
-      style={style}
-      data-represents={represents}
-    >
-      {children}
-    </layout-column>
-  )
-}
-
-function Row({ children, style, represents }) {
-  return (
-    <layout-row
-      style={style}
-      data-represents={represents}
-    >
-      {children}
-    </layout-row>
-  )
-}
-
-function Box({ children, style, represents }) {
-  return (
-    <layout-box
-      style={style}
-      represents={represents}
-    >
-      {children}
-    </layout-box>
-  );
-}
 
 export default App;

@@ -15,14 +15,24 @@ html {
 }
 
 
-layout-row {
+layout-group[data-flow=right] {
   display: flex;
   flex-direction: row;
 }
 
-layout-column {
+layout-group[data-flow=down] {
   display: flex;
   flex-direction: column;
+}
+
+layout-group[data-flow=up] {
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+layout-group[data-flow=left] {
+  display: flex;
+  flex-direction: row-reverse;
 }
 
 layout-box {
