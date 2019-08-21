@@ -6,15 +6,11 @@ import ds from 'datascript';
 
 function App() {
   return (
-    <layout-group
-      data-width='500px'
-      data-top='50px'
-      data-center-x='window.center.x'
-    >
+    <layout-context data-represents='hotelExample'>
       <RoomOffers />
       <HotelsByDistrict />
       <RoomCategories />
-    </layout-group>
+    </layout-context>
   );
 }
 
@@ -45,11 +41,12 @@ function HotelsByDistrict() {
 
         return (
           <layout-group
+            key={district.id}
             data-flow="down"
             data-represents={district.id}
           >
             <layout-box
-              drepresents='name'
+              data-represents='name'
               style={{ background: 'blue', color: '#fff' }}
             >
               {district.name}
@@ -57,7 +54,9 @@ function HotelsByDistrict() {
 
             {
               _.map((hotel) => (
-                <layout-box data-represents={hotel.id}>
+                <layout-box
+                  key={hotel.id}
+                  data-represents={hotel.id}>
                   {hotel.name}
                 </layout-box>
               ), hotels)
@@ -84,23 +83,29 @@ function RoomOffers() {
       data-bottom="$this.parent.bottom"
     >
       {_.map((category) => {
-        const roomOffers = _.map(([id, price, hotelId]) => ({ id, price, hotelId }), ds.q(`
-        [:find ?offer ?price ?hotel
-         :where [?offer "is kind of" "room offer"]
-                [?offer "has price" ?price]
-                [?offer "has category" "${category.id}"]
-                [?hotel "offers" ?offer]]
-      `, db))
+        const roomOffers = _.map(
+          ([id, price, hotelId, districtId]) => ({ id, price, hotelId, districtId }),
+          ds.q(`
+            [:find ?offer ?price ?hotel ?district
+            :where [?offer "is kind of" "room offer"]
+                    [?offer "has price" ?price]
+                    [?offer "has category" "${category.id}"]
+                    [?hotel "offers" ?offer]
+                    [?hotel "is in district" ?district]]
+          `, db)
+        )
 
         return (
           <layout-group
+            key={category.id}
             data-represents={category.id}
             data-flow="down"
           >
             {_.map((roomOffer) => (
               <layout-box
+                key={roomOffer.id}
                 data-represents={roomOffer.id}
-                data-center-y={`hotels..${roomOffer.hotelId}.center.y`}
+                data-center-y={`hotels.${roomOffer.districtId}.${roomOffer.hotelId}.center.y`}
                 style={{ textAlign: 'right' }}
               >
                 $ {roomOffer.price}
@@ -123,7 +128,7 @@ function RoomCategories() {
 
   return (
     <layout-group
-      data-represents="category"
+      data-represents="roomCategories"
       data-flow="down"
       data-top="hotels.bottom"
       data-right="hotels.right"
@@ -131,11 +136,12 @@ function RoomCategories() {
       {_.map((category) => {
         return (
           <layout-group
+            key={category.id}
             data-represents={category.id}
             data-flow="right"
           >
-            <layout-box data-represents={`${category}.name`}>{category.name}</layout-box>
-            <layout-box data-represents={`${category}.decription`}>{category.description}</layout-box>
+            <layout-box data-represents='name'>{category.name}</layout-box>
+            <layout-box data-represents='description'>{category.description}</layout-box>
           </layout-group>
         )
       }, categories)}
