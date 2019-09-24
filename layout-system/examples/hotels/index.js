@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
 import App from './App';
-import layoutEngine from './layoutEngine';
+import layoutEngine from '../src/layoutEngine';
 
 const root = document.getElementById('root')
 

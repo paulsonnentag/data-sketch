@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Tests</title>
+        <style>
+            .red {
+                background: #FF4136
+            }
+
+            .blue {
+                background: #0074D9
+            }
+
+            .yellow {
+                background: #FFDC00
+            }
+
+            .black {
+                background: #111;
+            }
+
+            .white {
+                border: 1px solid #111;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Absolute position</h1>
+
+        <h2>empty layout group</h2>
+
+        <layout-group
+                class="white"
+                data-represents="parent1"
+                data-width="100px"
+                data-height="100px">
+        </layout-group>
+
+
+        <!--
+
+        <h2>nested box full size</h2>
+
+        <layout-group data-represents="parent1" data-width="100px" data-height="100px">
+            <layout-box
+                    data-represents="red"
+                    class="red"
+            ></layout-box>
+        </layout-group>
+
+
+        <h2>nested multiple children</h2>
+
+        <layout-group data-represents="parent2">
+            <layout-box
+                    data-represents="red"
+                    class="red"
+            ></layout-box>
+        </layout-group>
+
+        -->
+
+
+        <script src="./layout.ts"></script>
+    </body>
+</html>
