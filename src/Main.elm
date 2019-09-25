@@ -5,8 +5,8 @@ import Browser.Events as Events
 import Element exposing (Element, column, el, px, row, text)
 import Element.Background as Background
 import Html exposing (Html, div)
-import Html.Attributes exposing (class, id, style)
-import Html.Events exposing (on, onMouseLeave, onMouseUp)
+import Html.Attributes exposing (class, classList, id, style)
+import Html.Events exposing (on)
 import Json.Decode as Decode exposing (Decoder)
 import Return
 import Theme
@@ -21,12 +21,17 @@ type alias Point =
 
 
 type Tool
-    = SelectionTool (Maybe Selection)
+    = SelectionTool Selection
     | BoxTool (Maybe BoxDefinition)
 
 
 type alias Selection =
-    { selectedIndex : Int }
+    { selectedIndex : Maybe Int, mouseDownEvent : Maybe MouseEvent }
+
+
+initialSelection : Selection
+initialSelection =
+    { selectedIndex = Nothing, mouseDownEvent = Nothing }
 
 
 type alias BoxDefinition =
@@ -48,13 +53,16 @@ type alias Box =
 
 
 type alias MouseEvent =
-    { position : Point, target : Maybe Int }
+    { position : Point
+    , positionOnTarget : Point
+    , target : Maybe Int
+    }
 
 
 initialState : Model
 initialState =
     { boxes = []
-    , tool = SelectionTool Nothing
+    , tool = SelectionTool initialSelection
     }
 
 
@@ -112,22 +120,56 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd msg )
 update msg model =
     case msg of
-        MouseDown { position, target } ->
+        MouseDown event ->
+            let
+                { position, target } =
+                    event
+            in
             case model.tool of
                 BoxTool _ ->
                     Return.singleton { model | tool = BoxTool (Just { startPoint = position, endPoint = position }) }
 
                 SelectionTool _ ->
-                    Return.singleton model
+                    Return.singleton
+                        { model
+                            | tool =
+                                SelectionTool
+                                    { selectedIndex = target
+                                    , mouseDownEvent = Just event
+                                    }
+                        }
 
         MouseMove { position, target } ->
-            let
-                _ =
-                    Debug.log "target" target
-            in
             case model.tool of
                 BoxTool (Just boxDefinition) ->
                     Return.singleton { model | tool = BoxTool (Just { boxDefinition | endPoint = position }) }
+
+                SelectionTool { selectedIndex, mouseDownEvent } ->
+                    case ( selectedIndex, mouseDownEvent ) of
+                        ( Just index, Just event ) ->
+                            if selectedIndex == event.target then
+                                Return.singleton
+                                    { model
+                                        | boxes =
+                                            List.indexedMap
+                                                (\boxIndex box ->
+                                                    if boxIndex == index then
+                                                        { box
+                                                            | left = position.x - event.positionOnTarget.x
+                                                            , top = position.y - event.positionOnTarget.y
+                                                        }
+
+                                                    else
+                                                        box
+                                                )
+                                                model.boxes
+                                    }
+
+                            else
+                                Return.singleton model
+
+                        _ ->
+                            Return.singleton model
 
                 _ ->
                     Return.singleton model
@@ -141,7 +183,7 @@ update msg model =
                     in
                     Return.singleton
                         { model
-                            | tool = SelectionTool Nothing
+                            | tool = SelectionTool initialSelection
                             , boxes =
                                 model.boxes
                                     -- only add box if it is at least 1 x 1 pixels
@@ -153,6 +195,9 @@ update msg model =
                                        )
                         }
 
+                SelectionTool selection ->
+                    Return.singleton { model | tool = SelectionTool { selection | mouseDownEvent = Nothing } }
+
                 _ ->
                     Return.singleton model
 
@@ -163,7 +208,7 @@ update msg model =
                         { model | tool = BoxTool Nothing }
 
                     "escape" ->
-                        { model | tool = SelectionTool Nothing }
+                        { model | tool = SelectionTool initialSelection }
 
                     _ ->
                         model
@@ -217,7 +262,7 @@ canvas boxes tool =
                 -- TODO: handle this better
                 , on "mouseleave" (Decode.map MouseUp mouseEvent)
                 ]
-                (List.indexedMap boxView boxes
+                (List.indexedMap (boxView tool) boxes
                     ++ toolPreview tool
                 )
             )
@@ -248,25 +293,39 @@ toolPreview tool =
 
 mouseEvent : Decoder MouseEvent
 mouseEvent =
-    Decode.map2 MouseEvent
+    Decode.map3 MouseEvent
         (Decode.map2
             Point
             (Decode.map (\x -> x - sidebarWidth) (Decode.field "clientX" Decode.int))
             (Decode.field "clientY" Decode.int)
         )
+        (Decode.map2
+            Point
+            (Decode.field "offsetX" Decode.int)
+            (Decode.field "offsetY" Decode.int)
+        )
         (Decode.map (Maybe.andThen String.toInt) (Decode.at [ "target", "id" ] (Decode.maybe Decode.string)))
 
 
-boxView : Int -> Box -> Html Msg
-boxView index { top, left, width, height } =
+boxView : Tool -> Int -> Box -> Html Msg
+boxView tool index { top, left, width, height } =
+    let
+        isSelected =
+            case tool of
+                SelectionTool { selectedIndex } ->
+                    selectedIndex == Just index
+
+                _ ->
+                    False
+    in
     div
         [ id (String.fromInt index)
         , class "box"
+        , classList [ ( "box__isSelected", isSelected ) ]
         , style "top" (String.fromInt top ++ "px")
         , style "left" (String.fromInt left ++ "px")
         , style "width" (String.fromInt width ++ "px")
         , style "height" (String.fromInt height ++ "px")
-        , style "background-color" (Theme.colorToString Theme.highlightColor)
         ]
         []
 
