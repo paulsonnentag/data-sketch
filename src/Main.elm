@@ -1,12 +1,14 @@
 module Main exposing (main)
 
 import Browser
-import Element exposing (column, el, px, row)
+import Browser.Events as Events
+import Element exposing (Element, column, el, px, row, text)
 import Element.Background as Background
 import Html exposing (Html, div)
 import Html.Attributes exposing (class, classList, style)
 import Html.Events exposing (on, onMouseLeave, onMouseUp)
 import Json.Decode as Decode exposing (Decoder)
+import Return
 import Theme
 
 
@@ -18,13 +20,21 @@ type alias Point =
     { x : Int, y : Int }
 
 
-type MouseAction
-    = None
-    | CreateBox Point Point
+type Tool
+    = SelectionTool (Maybe Int)
+    | BoxTool (Maybe BoxDefinition)
+
+
+type alias Selection =
+    { index : Int }
+
+
+type alias BoxDefinition =
+    { startPoint : Point, endPoint : Point }
 
 
 type alias Model =
-    { mouseAction : MouseAction
+    { tool : Tool
     , boxes : List Box
     }
 
@@ -39,13 +49,28 @@ type alias Box =
 
 initialState : Model
 initialState =
-    { mouseAction = None
-    , boxes = []
+    { boxes = []
+    , tool = SelectionTool Nothing
     }
 
 
-boxFromCorners : Point -> Point -> Box
-boxFromCorners startPoint endPoint =
+init : () -> ( Model, Cmd msg )
+init _ =
+    Return.singleton initialState
+
+
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Events.onKeyUp (Decode.map KeyPress keyboardEventKey)
+
+
+keyboardEventKey : Decoder String
+keyboardEventKey =
+    Decode.field "key" Decode.string
+
+
+boxFromDefinition : BoxDefinition -> Box
+boxFromDefinition { startPoint, endPoint } =
     let
         left =
             min startPoint.x endPoint.x
@@ -74,66 +99,89 @@ boxFromCorners startPoint endPoint =
 
 type Msg
     = NoOp
-    | StartCreateBox Point
-    | UpdateMouseAction Point
-    | CompleteMouseAction
+    | MouseDown Point
+    | MouseMove Point
+    | MouseUp Point
+    | KeyPress String
 
 
+update : Msg -> Model -> ( Model, Cmd msg )
 update msg model =
     case msg of
-        StartCreateBox startPoint ->
-            { model | mouseAction = CreateBox startPoint startPoint }
+        MouseDown point ->
+            case model.tool of
+                BoxTool _ ->
+                    Return.singleton { model | tool = BoxTool (Just { startPoint = point, endPoint = point }) }
 
-        UpdateMouseAction endPoint ->
-            case model.mouseAction of
-                CreateBox startPoint _ ->
-                    { model | mouseAction = CreateBox startPoint endPoint }
+                SelectionTool _ ->
+                    Return.singleton model
 
-                None ->
-                    model
+        MouseMove point ->
+            case model.tool of
+                BoxTool (Just boxDefinition) ->
+                    Return.singleton { model | tool = BoxTool (Just { boxDefinition | endPoint = point }) }
 
-        CompleteMouseAction ->
-            case model.mouseAction of
-                CreateBox startPoint endPoint ->
+                _ ->
+                    Return.singleton model
+
+        MouseUp point ->
+            case model.tool of
+                BoxTool (Just boxDefinition) ->
                     let
                         newBox =
-                            boxFromCorners startPoint endPoint
+                            boxFromDefinition boxDefinition
                     in
-                    { model
-                        | mouseAction = None
-                        , boxes =
-                            model.boxes
-                                -- only add box if it is at least 1 x 1 pixels
-                                ++ (if newBox.width > 0 && newBox.height > 0 then
-                                        [ newBox ]
+                    Return.singleton
+                        { model
+                            | tool = SelectionTool Nothing
+                            , boxes =
+                                model.boxes
+                                    -- only add box if it is at least 1 x 1 pixels
+                                    ++ (if newBox.width > 0 && newBox.height > 0 then
+                                            [ newBox ]
 
-                                    else
-                                        []
-                                   )
-                    }
+                                        else
+                                            []
+                                       )
+                        }
 
-                None ->
-                    model
+                _ ->
+                    Return.singleton model
+
+        KeyPress key ->
+            Return.singleton
+                (case String.toLower key of
+                    "b" ->
+                        { model | tool = BoxTool Nothing }
+
+                    "escape" ->
+                        { model | tool = SelectionTool Nothing }
+
+                    _ ->
+                        model
+                )
 
         NoOp ->
-            model
+            Return.singleton model
 
 
 
 -- view
 
 
+sidebar : Element Msg
 sidebar =
     column
         [ Background.color Theme.subtleLightColor
         , Element.width (300 |> px)
         , Element.height Element.fill
         ]
-        []
+        [ text "press b to create a box"
+        ]
 
 
-canvas : List Box -> MouseAction -> Element.Element Msg
-canvas boxes mouseAction =
+canvas : List Box -> Tool -> Element.Element Msg
+canvas boxes tool =
     el
         [ Element.width Element.fill
         , Element.height Element.fill
@@ -141,27 +189,35 @@ canvas boxes mouseAction =
         (Element.html
             (div
                 [ class "canvas"
-                , classList [ ( "disable-child-mouse-events", mouseAction /= None ) ]
-                , style "cursor" "crosshair"
-                , on "mousedown" (Decode.map StartCreateBox mousePosition)
-                , on "mousemove" (Decode.map UpdateMouseAction mousePosition)
-                , onMouseLeave CompleteMouseAction
-                , onMouseUp CompleteMouseAction
+                , style "cursor"
+                    (case tool of
+                        BoxTool _ ->
+                            "crosshair"
+
+                        _ ->
+                            "inherit"
+                    )
+                , on "mousedown" (Decode.map MouseDown mousePosition)
+                , on "mousemove" (Decode.map MouseMove mousePosition)
+                , on "mouseup" (Decode.map MouseUp mousePosition)
+
+                -- TODO: handle this better
+                , on "mouseleave" (Decode.map MouseUp mousePosition)
                 ]
                 (List.map boxView boxes
-                    ++ mouseActionPreview mouseAction
+                    ++ toolPreview tool
                 )
             )
         )
 
 
-mouseActionPreview : MouseAction -> List (Html msg)
-mouseActionPreview mouseAction =
-    case mouseAction of
-        CreateBox startPoint endPoint ->
+toolPreview : Tool -> List (Html msg)
+toolPreview tool =
+    case tool of
+        BoxTool (Just boxDefinition) ->
             let
                 box =
-                    boxFromCorners startPoint endPoint
+                    boxFromDefinition boxDefinition
             in
             [ div
                 [ class "createBoxPreview"
@@ -173,7 +229,7 @@ mouseActionPreview mouseAction =
                 []
             ]
 
-        None ->
+        _ ->
             []
 
 
@@ -197,7 +253,6 @@ boxView { top, left, width, height } =
         []
 
 
-view : Model -> Html Msg
 view model =
     Element.layout
         []
@@ -206,10 +261,15 @@ view model =
             , Element.height Element.fill
             ]
             [ sidebar
-            , canvas model.boxes model.mouseAction
+            , canvas model.boxes model.tool
             ]
         )
 
 
 main =
-    Browser.sandbox { init = initialState, update = update, view = view }
+    Browser.element
+        { init = init
+        , update = update
+        , view = view
+        , subscriptions = subscriptions
+        }

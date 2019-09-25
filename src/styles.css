@@ -6,12 +6,17 @@
 
 }
 
-.disable-child-mouse-events * {
+.canvas * {
   pointer-events: none;
 }
 
 .box {
     position: absolute;
+    background: #bbdefb;
+}
+
+.box:hover {
+    border: 1px solid #90caf9;
 }
 
 .box_inner {
