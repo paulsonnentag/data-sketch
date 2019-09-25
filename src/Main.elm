@@ -5,7 +5,7 @@ import Browser.Events as Events
 import Element exposing (Element, column, el, px, row, text)
 import Element.Background as Background
 import Html exposing (Html, div)
-import Html.Attributes exposing (class, classList, style)
+import Html.Attributes exposing (class, id, style)
 import Html.Events exposing (on, onMouseLeave, onMouseUp)
 import Json.Decode as Decode exposing (Decoder)
 import Return
@@ -21,12 +21,12 @@ type alias Point =
 
 
 type Tool
-    = SelectionTool (Maybe Int)
+    = SelectionTool (Maybe Selection)
     | BoxTool (Maybe BoxDefinition)
 
 
 type alias Selection =
-    { index : Int }
+    { selectedIndex : Int }
 
 
 type alias BoxDefinition =
@@ -45,6 +45,10 @@ type alias Box =
     , width : Int
     , height : Int
     }
+
+
+type alias MouseEvent =
+    { position : Point, target : Maybe Int }
 
 
 initialState : Model
@@ -99,32 +103,36 @@ boxFromDefinition { startPoint, endPoint } =
 
 type Msg
     = NoOp
-    | MouseDown Point
-    | MouseMove Point
-    | MouseUp Point
+    | MouseDown MouseEvent
+    | MouseMove MouseEvent
+    | MouseUp MouseEvent
     | KeyPress String
 
 
 update : Msg -> Model -> ( Model, Cmd msg )
 update msg model =
     case msg of
-        MouseDown point ->
+        MouseDown { position, target } ->
             case model.tool of
                 BoxTool _ ->
-                    Return.singleton { model | tool = BoxTool (Just { startPoint = point, endPoint = point }) }
+                    Return.singleton { model | tool = BoxTool (Just { startPoint = position, endPoint = position }) }
 
                 SelectionTool _ ->
                     Return.singleton model
 
-        MouseMove point ->
+        MouseMove { position, target } ->
+            let
+                _ =
+                    Debug.log "target" target
+            in
             case model.tool of
                 BoxTool (Just boxDefinition) ->
-                    Return.singleton { model | tool = BoxTool (Just { boxDefinition | endPoint = point }) }
+                    Return.singleton { model | tool = BoxTool (Just { boxDefinition | endPoint = position }) }
 
                 _ ->
                     Return.singleton model
 
-        MouseUp point ->
+        MouseUp { position, target } ->
             case model.tool of
                 BoxTool (Just boxDefinition) ->
                     let
@@ -169,11 +177,16 @@ update msg model =
 -- view
 
 
+sidebarWidth : Int
+sidebarWidth =
+    300
+
+
 sidebar : Element Msg
 sidebar =
     column
         [ Background.color Theme.subtleLightColor
-        , Element.width (300 |> px)
+        , Element.width (sidebarWidth |> px)
         , Element.height Element.fill
         ]
         [ text "press b to create a box"
@@ -197,14 +210,14 @@ canvas boxes tool =
                         _ ->
                             "inherit"
                     )
-                , on "mousedown" (Decode.map MouseDown mousePosition)
-                , on "mousemove" (Decode.map MouseMove mousePosition)
-                , on "mouseup" (Decode.map MouseUp mousePosition)
+                , on "mousedown" (Decode.map MouseDown mouseEvent)
+                , on "mousemove" (Decode.map MouseMove mouseEvent)
+                , on "mouseup" (Decode.map MouseUp mouseEvent)
 
                 -- TODO: handle this better
-                , on "mouseleave" (Decode.map MouseUp mousePosition)
+                , on "mouseleave" (Decode.map MouseUp mouseEvent)
                 ]
-                (List.map boxView boxes
+                (List.indexedMap boxView boxes
                     ++ toolPreview tool
                 )
             )
@@ -233,17 +246,22 @@ toolPreview tool =
             []
 
 
-mousePosition : Decoder Point
-mousePosition =
-    Decode.map2 Point
-        (Decode.field "offsetX" Decode.int)
-        (Decode.field "offsetY" Decode.int)
+mouseEvent : Decoder MouseEvent
+mouseEvent =
+    Decode.map2 MouseEvent
+        (Decode.map2
+            Point
+            (Decode.map (\x -> x - sidebarWidth) (Decode.field "clientX" Decode.int))
+            (Decode.field "clientY" Decode.int)
+        )
+        (Decode.map (Maybe.andThen String.toInt) (Decode.at [ "target", "id" ] (Decode.maybe Decode.string)))
 
 
-boxView : Box -> Html Msg
-boxView { top, left, width, height } =
+boxView : Int -> Box -> Html Msg
+boxView index { top, left, width, height } =
     div
-        [ class "box"
+        [ id (String.fromInt index)
+        , class "box"
         , style "top" (String.fromInt top ++ "px")
         , style "left" (String.fromInt left ++ "px")
         , style "width" (String.fromInt width ++ "px")

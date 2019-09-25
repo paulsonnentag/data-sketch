@@ -2,17 +2,12 @@
     width: 100%;
     height: 100%;
     position: relative;
-
-
-}
-
-.canvas * {
-  pointer-events: none;
 }
 
 .box {
     position: absolute;
     background: #bbdefb;
+    overflow: hidden;
 }
 
 .box:hover {
