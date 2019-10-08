@@ -2,14 +2,16 @@ module Main exposing (main)
 
 import Browser
 import Browser.Events as Events
-import Element exposing (Element, column, el, px, row, text)
+import Element exposing (Element, column, el, px, row)
 import Element.Background as Background
+import Element.Border as Border
+import Element.Font as Font
 import Html exposing (Html, div)
 import Html.Attributes exposing (class, classList, id, style)
 import Html.Events exposing (on)
 import Json.Decode as Decode exposing (Decoder)
+import Palette
 import Return
-import Theme
 
 
 
@@ -230,11 +232,47 @@ sidebarWidth =
 sidebar : Element Msg
 sidebar =
     column
-        [ Background.color Theme.subtleLightColor
+        [ Background.color Palette.gray0
         , Element.width (sidebarWidth |> px)
         , Element.height Element.fill
+        , Element.padding Palette.mediumSpacing
+        , Border.solid
+        , Border.color Palette.gray100
+        , Border.widthEach { top = 0, left = 1, bottom = 0, right = 0 }
         ]
-        [ text "press b to create a box"
+        [ column
+            [ Element.width Element.fill
+            , Element.spacing Palette.smallSpacing
+            ]
+            [ el
+                ([ Element.paddingEach { top = 0, right = 0, bottom = Palette.smallSpacing, left = 0 }
+                 ]
+                    ++ Palette.h1
+                )
+                (Element.text "Tools")
+            , column
+                [ Element.paddingEach { top = 0, right = 0, bottom = 0, left = Palette.smallSpacing }
+                , Element.width Element.fill
+                , Element.spacing Palette.smallSpacing
+                ]
+                [ toolOption "Box" "B"
+                , toolOption "Frame" "F"
+                ]
+            ]
+        ]
+
+
+toolOption : String -> String -> Element.Element Msg
+toolOption name shortcut =
+    row
+        ([ Element.width Element.fill
+         , Element.spaceEvenly
+         , Font.color Palette.gray700
+         ]
+            ++ Palette.h2
+        )
+        [ Element.text name
+        , Element.text shortcut
         ]
 
 
@@ -243,6 +281,7 @@ canvas boxes tool =
     el
         [ Element.width Element.fill
         , Element.height Element.fill
+        , Background.color Palette.gray50
         ]
         (Element.html
             (div

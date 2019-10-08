@@ -1,6 +1,9 @@
+@import url('https://fonts.googleapis.com/css?family=Roboto&display=swap');
+
 /* apply a natural box layout model to all elements, but allowing components to change */
 html {
     box-sizing: border-box;
+    font-family: Roboto sans-serif;
 }
 *, *:before, *:after {
     box-sizing: inherit;
@@ -14,7 +17,7 @@ html {
 
 .box {
     position: absolute;
-    background: #bada55;
+    background: rgba(33, 150, 243, 0.5);
     overflow: hidden;
 }
 
