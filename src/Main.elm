@@ -1,8 +1,9 @@
 module Main exposing (main)
 
+import Array exposing (Array)
 import Browser
 import Browser.Events as Events
-import Canvas exposing (Box, Canvas, Point, Rectangle, RectangleDefinition)
+import Canvas exposing (Box(..), Path, Point, Rectangle, RectangleDefinition)
 import Element exposing (Color, Element, column, el, px, row)
 import Element.Background as Background
 import Element.Border as Border
@@ -11,6 +12,7 @@ import Html exposing (Html, div)
 import Html.Attributes exposing (class, classList, style)
 import Html.Events exposing (on)
 import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
 import Palette
 import Return
 
@@ -25,31 +27,31 @@ type Tool
 
 
 type alias Selection =
-    { selectedId : Maybe Int, mouseDownEvent : Maybe MouseEvent }
+    { selectedPath : Maybe Path, mouseDownEvent : Maybe MouseEvent }
 
 
 initialSelection : Selection
 initialSelection =
-    { selectedId = Nothing, mouseDownEvent = Nothing }
+    { selectedPath = Nothing, mouseDownEvent = Nothing }
 
 
 type alias Model =
     { tool : Tool
-    , canvas : Canvas
+    , boxes : Array Box
     }
 
 
 type alias MouseEvent =
     { position : Point
     , positionOnTarget : Point
-    , target : Maybe Int
+    , target : Maybe Path
     }
 
 
 initialState : Model
 initialState =
     { tool = SelectionTool initialSelection
-    , canvas = Canvas.empty
+    , boxes = Array.empty
     }
 
 
@@ -97,7 +99,7 @@ update msg model =
                         { model
                             | tool =
                                 SelectionTool
-                                    { selectedId = target
+                                    { selectedPath = target
                                     , mouseDownEvent = Just event
                                     }
                         }
@@ -107,16 +109,16 @@ update msg model =
                 BoxTool (Just boxDefinition) ->
                     Return.singleton { model | tool = BoxTool (Just { boxDefinition | endPoint = position }) }
 
-                SelectionTool { selectedId, mouseDownEvent } ->
-                    case ( selectedId, mouseDownEvent ) of
-                        ( Just id, Just event ) ->
-                            if selectedId == event.target then
+                SelectionTool { selectedPath, mouseDownEvent } ->
+                    case ( selectedPath, mouseDownEvent ) of
+                        ( Just path, Just event ) ->
+                            if selectedPath == event.target then
                                 Return.singleton
                                     { model
-                                        | canvas =
+                                        | boxes =
                                             Canvas.updateBox
-                                                id
-                                                (\box ->
+                                                path
+                                                (\(Box box) ->
                                                     let
                                                         rectangle =
                                                             box.rectangle
@@ -127,9 +129,9 @@ update msg model =
                                                                 , top = position.y - event.positionOnTarget.y
                                                             }
                                                     in
-                                                    { box | rectangle = movedRectangle }
+                                                    Box { box | rectangle = movedRectangle }
                                                 )
-                                                model.canvas
+                                                model.boxes
                                     }
 
                             else
@@ -145,22 +147,20 @@ update msg model =
             case model.tool of
                 BoxTool (Just rectangleDefinition) ->
                     let
-                        newBox =
+                        (Box newBox) =
                             rectangleDefinition
                                 |> Canvas.rectangleFromDefinition
-                                |> Canvas.boxFromRectangle Nothing
-
-                        canvas =
-                            if newBox.rectangle.width > 0 && newBox.rectangle.height > 0 then
-                                Canvas.addBox newBox model.canvas
-
-                            else
-                                model.canvas
+                                |> Canvas.boxFromRectangle
                     in
                     Return.singleton
                         { model
                             | tool = SelectionTool initialSelection
-                            , canvas = canvas
+                            , boxes =
+                                if newBox.rectangle.width > 0 && newBox.rectangle.height > 0 then
+                                    Canvas.addBox [] (Box newBox) model.boxes
+
+                                else
+                                    model.boxes
                         }
 
                 SelectionTool selection ->
@@ -248,8 +248,8 @@ toolOption name shortcut isImplemented =
         ]
 
 
-canvasView : Canvas -> Tool -> Element.Element Msg
-canvasView canvas tool =
+canvasView : Array Box -> Tool -> Element.Element Msg
+canvasView boxes tool =
     el
         [ Element.width Element.fill
         , Element.height Element.fill
@@ -273,7 +273,10 @@ canvasView canvas tool =
                 -- TODO: handle this better
                 , on "mouseleave" (Decode.map MouseUp mouseEvent)
                 ]
-                (List.map (boxView canvas tool) (Canvas.topLevelBoxes canvas)
+                ((boxes
+                    |> Array.toIndexedList
+                    |> List.map (boxView tool [])
+                 )
                     ++ toolPreview tool
                 )
             )
@@ -315,25 +318,25 @@ mouseEvent =
             (Decode.field "offsetX" Decode.int)
             (Decode.field "offsetY" Decode.int)
         )
-        (Decode.map (Maybe.andThen String.toInt) (Decode.at [ "target", "id" ] (Decode.maybe Decode.string)))
+        (Decode.at [ "target", "id" ] (Decode.maybe (Decode.list Decode.int)))
 
 
-boxView : Canvas -> Tool -> ( Int, Box ) -> Html Msg
-boxView canvas tool ( id, { rectangle, fill } ) =
+boxView : Tool -> Path -> ( Int, Box ) -> Html Msg
+boxView tool path ( index, Box { rectangle, fill, children } ) =
     let
+        fullPath =
+            path ++ [ index ]
+
         isSelected =
             case tool of
-                SelectionTool { selectedId } ->
-                    selectedId == Just id
+                SelectionTool { selectedPath } ->
+                    selectedPath == Just fullPath
 
                 _ ->
                     False
-
-        children =
-            Canvas.childrenOfBox canvas id
     in
     div
-        [ Html.Attributes.id (String.fromInt id)
+        [ Html.Attributes.id (Encode.encode 0 (Encode.list Encode.int fullPath))
         , class "box"
         , classList [ ( "box__isSelected", isSelected ) ]
         , style "top" (String.fromInt rectangle.top ++ "px")
@@ -345,12 +348,15 @@ boxView canvas tool ( id, { rectangle, fill } ) =
         [ div
             [ class "box_inner"
             ]
-            (List.map (boxView canvas tool) children)
+            (children
+                |> Array.toIndexedList
+                |> List.map (boxView tool fullPath)
+            )
         ]
 
 
 view : Model -> Html Msg
-view { canvas, tool } =
+view { boxes, tool } =
     Element.layout
         []
         (row
@@ -358,7 +364,7 @@ view { canvas, tool } =
             , Element.height Element.fill
             ]
             [ sidebar
-            , canvasView canvas tool
+            , canvasView boxes tool
             ]
         )
 

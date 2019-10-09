@@ -1,40 +1,26 @@
 module Canvas exposing
-    ( Box
-    , Canvas
-    , CanvasModel
+    ( Box(..)
+    , Path
     , Point
     , Rectangle
     , RectangleDefinition
     , addBox
     , boxFromRectangle
-    , childrenOfBox
-    , empty
     , rectangleFromDefinition
-    , topLevelBoxes
     , updateBox
     )
 
-import Dict exposing (Dict)
+import Array exposing (Array)
 import Element exposing (Color)
 import Palette
 
 
-type Canvas
-    = Canvas CanvasModel
-
-
-type alias CanvasModel =
-    { boxes : Dict Int Box
-    , childrenByParent : Dict Int (Dict Int Box)
-    , nextId : Int
-    }
-
-
-type alias Box =
-    { rectangle : Rectangle
-    , fill : Color
-    , parentId : Maybe Int
-    }
+type Box
+    = Box
+        { rectangle : Rectangle
+        , fill : Color
+        , children : Array Box
+        }
 
 
 type alias Rectangle =
@@ -53,97 +39,51 @@ type alias Point =
     { x : Int, y : Int }
 
 
-empty : Canvas
-empty =
-    Canvas
-        { boxes = Dict.empty
-        , childrenByParent = Dict.empty
-        , nextId = 0
-        }
+
+-- PATH
+
+
+type alias Path =
+    List Int
 
 
 
 -- CANVAS
 
 
-childrenOfBox : Canvas -> Int -> List ( Int, Box )
-childrenOfBox (Canvas { childrenByParent }) id =
-    Dict.get id childrenByParent
-        |> Maybe.withDefault Dict.empty
-        |> Dict.toList
+addBox : Path -> Box -> Array Box -> Array Box
+addBox path box boxes =
+    case path of
+        [] ->
+            Array.push box boxes
+
+        index :: _ ->
+            case ( Array.get index boxes, List.tail path ) of
+                ( Just childBox, Just tail ) ->
+                    Array.set index (addBoxToBox tail box childBox) boxes
+
+                _ ->
+                    boxes
 
 
-topLevelBoxes : Canvas -> List ( Int, Box )
-topLevelBoxes canvas =
-    childrenOfBox canvas -1
+addBoxToBox : Path -> Box -> Box -> Box
+addBoxToBox path box (Box parentBox) =
+    case path of
+        [] ->
+            Box { parentBox | children = Array.push box parentBox.children }
+
+        index :: _ ->
+            case ( Array.get index parentBox.children, List.tail path ) of
+                ( Just childBox, Just tail ) ->
+                    Box { parentBox | children = Array.set index (addBoxToBox tail box childBox) parentBox.children }
+
+                _ ->
+                    Box parentBox
 
 
-addBox : Box -> Canvas -> Canvas
-addBox box (Canvas canvas) =
-    let
-        { boxes, childrenByParent } =
-            canvas
-
-        boxesWithAddedBox =
-            Dict.insert canvas.nextId box canvas.boxes
-    in
-    Canvas
-        { canvas
-            | boxes = boxesWithAddedBox
-            , childrenByParent = getChildrenByParent boxesWithAddedBox
-            , nextId = canvas.nextId + 1
-        }
-
-
-updateBox : Int -> (Box -> Box) -> Canvas -> Canvas
-updateBox id update (Canvas canvas) =
-    let
-        boxesWithUpdatedBox =
-            Dict.update
-                id
-                (\previousValue ->
-                    case previousValue of
-                        Nothing ->
-                            Nothing
-
-                        Just box ->
-                            Just (update box)
-                )
-                canvas.boxes
-    in
-    Canvas
-        { canvas
-            | boxes = boxesWithUpdatedBox
-            , childrenByParent = getChildrenByParent boxesWithUpdatedBox
-        }
-
-
-getChildrenByParent : Dict Int Box -> Dict Int (Dict Int Box)
-getChildrenByParent boxes =
-    Dict.foldl
-        (\id box childrenByParent ->
-            let
-                parentId =
-                    parentIdOfBox box
-            in
-            Dict.update
-                parentId
-                (\previousValue ->
-                    let
-                        children =
-                            Maybe.withDefault Dict.empty previousValue
-                    in
-                    Just (Dict.insert id box children)
-                )
-                childrenByParent
-        )
-        Dict.empty
-        boxes
-
-
-parentIdOfBox : Box -> Int
-parentIdOfBox box =
-    Maybe.withDefault -1 box.parentId
+updateBox : Path -> (Box -> Box) -> Array Box -> Array Box
+updateBox path update boxes =
+    boxes
 
 
 
@@ -174,9 +114,10 @@ rectangleFromDefinition { startPoint, endPoint } =
     }
 
 
-boxFromRectangle : Maybe Int -> Rectangle -> Box
-boxFromRectangle parentId rectangle =
-    { rectangle = rectangle
-    , fill = Palette.blue500
-    , parentId = parentId
-    }
+boxFromRectangle : Rectangle -> Box
+boxFromRectangle rectangle =
+    Box
+        { rectangle = rectangle
+        , fill = Palette.blue500
+        , children = Array.empty
+        }
