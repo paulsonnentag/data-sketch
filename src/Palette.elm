@@ -138,10 +138,6 @@ blue500 =
     rgba255 33 150 243 0.5
 
 
-
---noinspection ElmUnusedSymbol
-
-
 colorToString : Color -> String
 colorToString color =
     let

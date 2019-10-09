@@ -17,7 +17,6 @@ html {
 
 .box {
     position: absolute;
-    background: rgba(33, 150, 243, 0.5);
     overflow: hidden;
 }
 
