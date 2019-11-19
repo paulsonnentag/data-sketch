@@ -1,26 +1,16 @@
 #dev setup
 
-
-## lein
-
-install
-
+running dev
 ```shell script
- brew install leiningen
+./scripts/start-dev-server.sh
 ```
 
-remove compiled files can be configured in `project.clj` with `:clean-targets` property
 
-```shell script
-lein clean
-```
+## Tutorials
 
-### Plugins
+- https://figwheel.org/docs/installation.html#choosing-leiningen-vs-cli-tools
 
-## cljs build
+## Tools
 
-build ClojureScript projects
-
-```shell script
-lein cljsbuild auto
-```
+- dirac: extends chrome dev tools
+    https://github.com/binaryage/dirac
