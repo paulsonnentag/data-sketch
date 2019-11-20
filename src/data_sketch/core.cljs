@@ -68,6 +68,7 @@
                :todo/text "Another incomplete task" :todo/done false}])
 
 
+
 (defonce conn (d/create-conn schema))
 
 (defonce initial-data (d/transact! conn dataset))
@@ -78,7 +79,7 @@
   (let [datom {:tag "search"}]
     (d/transact! conn [datom])))
 
-(defn delete-search [db search]
+(defn delete-search [search]
   (print "delete-search" search)
   (d/transact! conn [[:db.fn/retractEntity search]]))
 
@@ -87,7 +88,7 @@
 (r/defc search-view [db [search]]
   [:div.search {}
    [:h2 {:key search} "search #" search
-    [:button {:on-click #(delete-search db search)} "delete"]]])
+    [:button {:on-click #(delete-search search)} "delete"]]])
 
 (r/defc searches-view [db]
   (let [searches (d/q '[:find ?e :where [?e :tag "search"]] db)]
@@ -99,7 +100,7 @@
 
    (searches-view db)
 
-   [:button {:on-click #(create-search)} "new search"]])
+   [:button {:on-click #(create-search)} "new search !!"]])
 
 ;; APPLICATION SETUP
 
