@@ -1,7 +1,8 @@
 (ns data-sketch.core
-  (:require [rum.core :as r]
+  (:require [clojure.string :as str]
+            [rum.core :as r]
             [datascript.core :as d]
-            [clojure.string :as str]))
+            [data-sketch.example-data :as example-data]))
 
 (enable-console-print!)
 
@@ -11,67 +12,10 @@
              :todo/due     {:db/index true}
              :tag          {:db/index true :db/cardinality :db.cardinality/many}})
 
-(def dataset [
-              ; projects
-              {:db/id        -1
-               :tag          "project"
-               :project/name "datascript"}
-              {:db/id        -2
-               :tag          "project"
-               :project/name "nyc-webinar"}
-              {:db/id        -3
-               :tag          "project"
-               :project/name "shopping"}
-
-              ; todos
-              {:tag          "todo"
-               :todo/text    "Displaying list of todos"
-               :todo/tags    ["listen" "query"]
-               :todo/project -2
-               :todo/done    true
-               :todo/due     "2014-12-13"}
-              {:tag          "todo"
-               :todo/text    "Persisting to localStorage"
-               :todo/tags    ["listen" "serialization" "transact"]
-               :todo/project -2
-               :todo/done    true
-               :todo/due     "2014-12-13"}
-              {:tag          "todo"
-               :todo/text    "Make task completable"
-               :todo/tags    ["transact" "funs"]
-               :todo/project -2
-               :todo/done    false
-               :todo/due     "2014-12-13"}
-              {:tag          "todo"
-               :todo/text    "Fix fn calls on emtpy rels"
-               :todo/tags    ["bug" "funs" "query"]
-               :todo/project -1
-               :todo/done    false
-               :todo/due     "2015-01-01"}
-              {:tag          "todo"
-               :todo/text    "Add db filtering"
-               :todo/project -1
-               :todo/done    false
-               :todo/due     "2015-05-30"}
-              {:tag          "todo"
-               :todo/text    "Soap"
-               :todo/project -3
-               :todo/done    false
-               :todo/due     "2015-05-01"}
-              {:tag          "todo"
-               :todo/text    "Cake"
-               :todo/done    false
-               :todo/project -3}
-              {:tag       "todo"
-               :todo/text "Just a task" :todo/done false}
-              {:tag       "todo"
-               :todo/text "Another incomplete task" :todo/done false}])
-
-
 
 (defonce conn (d/create-conn schema))
 
-(defonce initial-data (d/transact! conn dataset))
+(defonce initial-data (d/transact! conn example-data/movies))
 
 ;; ACTIONS
 
@@ -112,7 +56,6 @@
          (d/listen! conn :render
                     (fn [transaction-report]
                       (render (:db-after transaction-report)))))
-
 
 (defn datom->str [d]
   (str (if (:added d) "+" "−")
