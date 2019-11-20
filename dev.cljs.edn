@@ -1,2 +1,6 @@
-^{:css-dirs ["resources/public/css"]}
+^{;; config figwheel
+  :css-dirs          ["resources/public/css"]
+  :open-file-command "scripts/open-file.sh"
+  :open-url          false}
+
 {:main data-sketch.core}

@@ -10,6 +10,9 @@ running dev
 
 - https://figwheel.org/docs/installation.html#choosing-leiningen-vs-cli-tools
 
+- list of all figwheel options
+    https://github.com/bhauman/figwheel-main/blob/master/doc/figwheel-main-options.md
+
 ## Tools
 
 - dirac: extends chrome dev tools
