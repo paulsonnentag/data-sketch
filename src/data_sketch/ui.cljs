@@ -67,7 +67,7 @@
         :max {:max value}
         nil))))
 
-(defn constrained-size-expr [expr]
+(defn list-size-expr [expr]
   (reduce (fn [agg sub-expr]
             (if-let [result (or
                               (value-size-expr sub-expr)
@@ -81,7 +81,7 @@
   (or
     (value-size-expr expr)
     (constraint-size-expr expr)
-    (constrained-size-expr expr)))
+    (list-size-expr expr)))
 
 (size-expr nil)
 (size-expr :fill)
@@ -123,4 +123,3 @@
 
 (defn paragraph [attrs value]
   [:p.ui-paragraph (transform-attrs attrs) value])
-

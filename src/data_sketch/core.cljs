@@ -2,7 +2,8 @@
   (:require [clojure.string :as str]
             [rum.core :as r]
             [datascript.core :as d]
-            [data-sketch.example-data :as example-data]))
+            [data-sketch.example-data :as example-data]
+            [data-sketch.ui :as ui]))
 
 (enable-console-print!)
 
@@ -36,7 +37,8 @@
 
 (r/defc searches-view [db]
   (let [searches (d/q '[:find ?e :where [?e :tag "search"]] db)]
-    (map #(search-view db %1) searches)))
+    (ui/column {:width [:min [800 :px]]}
+               (map #(search-view db %1) searches))))
 
 (r/defc app [db]
   [:div.app {}
