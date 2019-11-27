@@ -5,12 +5,6 @@ inspired by [Elm UI](https://package.elm-lang.org/packages/mdgriffith/elm-ui/)
 
 ## Layout
 
-### Units
-```clojure
-(px 10)
-(fraction 1)
-```
-
 ### Size
 
 default: shrink
@@ -18,9 +12,9 @@ default: shrink
 ```clojure
 {:width :fill}
 {:width :shrink}
-{:width (px 100)}
-{:width (fraction 100)}
-{:width {:value :fill :max (px 100) :min (px 200)}} 
+{:width [100 :px]}
+{:width [100 :fraction]}
+{:width {:value :fill :max [100 :px] :min [200 :px]}} 
 ```
 
 ### Overflow
@@ -33,18 +27,16 @@ default:
 {:overflow {:x :scroll}}
 ```
 
-
 ### Spacing
 
 ```clojure
-{:padding (px 20)}
-{:padding [(px 20) (px 20)]}
-{:padding [(px 20) (px 20) (px 20) (px 20)]}
-
-{:evenSpacing :true} ; sets padding and gap evenly, overrides padding and gap
+{:padding [20 :px]}
+{:padding [[20 :px] [10 :px]]}
+{:padding [[20 :px] [20 :px] [10 :px] [10 :px]]}
 
 ;; row / column specific
-{:gap (px 10)} 
+{:gap [10 :px]}
+{:gap :auto}
 ```
 
 

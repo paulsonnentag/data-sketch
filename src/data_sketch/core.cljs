@@ -1,6 +1,5 @@
 (ns data-sketch.core
   (:require [clojure.string :as str]
-            [rum.core :as r]
             [datascript.core :as d]
             [data-sketch.example-data :as example-data]
             [data-sketch.ui :as ui]))
@@ -30,28 +29,29 @@
 
 ;; VIEWS
 
-(r/defc search-view [db [search]]
-  [:div.search {}
-   [:h2 {:key search} "search #" search
-    [:button {:on-click #(delete-search search)} "delete"]]])
+(defn search-view [db [search]]
+  (ui/row {}
+          (ui/text {} (str "search #" search))
+          (ui/button {:on-click #(delete-search search)} "delete")))
 
-(r/defc searches-view [db]
+(defn searches-view [db]
   (let [searches (d/q '[:find ?e :where [?e :tag "search"]] db)]
-    (ui/column {:width [:min [800 :px]]}
+    (ui/column {:width {:min [800 :px]}}
                (map #(search-view db %1) searches))))
 
-(r/defc app [db]
-  [:div.app {}
-   [:h1 {} "DataSketch"]
+(comment
+  (d/q '[:find ?e :where [?e :tag "search"]] @conn)
+  (flatten "foobar"))
 
-   (searches-view db)
-
-   [:button {:on-click #(create-search)} "new search !!"]])
+(defn app [db]
+  (ui/column {}
+    (searches-view db)
+    (ui/button {:on-click #(create-search)} "new search")))
 
 ;; APPLICATION SETUP
 
 (defn render [db]
-  (r/mount (app db) (.getElementById js/document "root")))
+  (ui/render (app db) (.getElementById js/document "root")))
 
 ;; re-render after every db update
 (defonce rerender-listener

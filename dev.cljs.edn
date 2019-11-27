@@ -1,8 +1,8 @@
 ^{;; config figwheel
   :css-dirs          ["resources/public/css"]
   :open-file-command "scripts/open-file.sh"
-  :open-url          false
-  :extra-main-files  {:ui-test {:main data-sketch.ui-test}}}
+  :load-warninged-code true
+  :extra-main-files  {:ui-examples {:main data-sketch.ui-examples}}}
 
 {:main         data-sketch.core
  :source-paths []}
