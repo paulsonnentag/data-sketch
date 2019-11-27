@@ -207,14 +207,22 @@
    :attrs    {:className "ui-paragraph"}
    :children (list value)})
 
-(defn element->react [element]
-  (if (string? element)
-    element
-    (let [{:keys [attrs tag children]} element]
-      (React/createElement tag (clj->js attrs) (map element->react children)))))
+(defn element->react
+  ([element]
+   (if (string? element)
+     element
+     (let [{:keys [attrs tag children]} element]
+       (React/createElement tag (clj->js attrs) (map-indexed element->react children)))))
+
+  ([index element]
+   (let [element-with-key (if (and (nil? (get-in element [:attrs :key]))
+                                   (not (string? element)))
+                            (assoc-in element [:attrs :key] index)
+                            element)]
+     (element->react element-with-key))))
 
 (defn render [element container]
-  (print "render" (cljs.pprint/pprint element))
+  #_(print "render" (cljs.pprint/pprint element))
   (ReactDOM/render (element->react element) container))
 
 
