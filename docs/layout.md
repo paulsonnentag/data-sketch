@@ -13,7 +13,7 @@ default: shrink
 {:width :fill}
 {:width :shrink}
 {:width [100 :px]}
-{:width [100 :fraction]}
+{:width [100 :part]}
 {:width {:value :fill :max [100 :px] :min [200 :px]}} 
 ```
 
@@ -27,7 +27,7 @@ default:
 {:overflow {:x :scroll}}
 ```
 
-### Spacing
+### Spacing 
 
 ```clojure
 {:padding [20 :px]}

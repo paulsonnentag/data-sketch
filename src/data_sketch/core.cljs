@@ -2,7 +2,7 @@
   (:require [clojure.string :as str]
             [datascript.core :as d]
             [data-sketch.example-data :as example-data]
-            [data-sketch.ui :as ui]))
+            [data-sketch.ui.core :as ui]))
 
 (enable-console-print!)
 
@@ -31,7 +31,7 @@
 
 (defn search-view [db [search]]
   (ui/row {}
-          (ui/text {} (str "search #" search))
+          (ui/box {} (str "search #" search))
           (ui/button {:on-click #(delete-search search)} "delete")))
 
 (defn searches-view [db]
@@ -40,8 +40,7 @@
                (map #(search-view db %1) searches))))
 
 (comment
-  (d/q '[:find ?e :where [?e :tag "search"]] @conn)
-  (flatten "foobar"))
+  (d/q '[:find ?e :where [?e :tag "search"]] @conn))
 
 (defn app [db]
   (ui/column {}
