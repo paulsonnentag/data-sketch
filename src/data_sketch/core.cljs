@@ -2,7 +2,7 @@
   (:require [clojure.string :as str]
             [datascript.core :as d]
             [data-sketch.example-data :as example-data]
-            [data-sketch.ui.core :as ui]))
+            [rum.core :as rum]))
 
 (enable-console-print!)
 
@@ -29,28 +29,89 @@
 
 ;; VIEWS
 
-(defn search-view [db [search]]
-  (ui/row {}
-          (ui/box {} (str "search #" search))
-          (ui/button {:on-click #(delete-search search)} "delete")))
+(rum/defc app [db]
+  [:div
+   [:h1 "Movies example"]
 
-(defn searches-view [db]
-  (let [searches (d/q '[:find ?e :where [?e :tag "search"]] db)]
-    (ui/column {:width {:min [800 :px]}}
-               (map #(search-view db %1) searches))))
+   [:.Content
+    [:table.Entity
+     [:thead
+      [:tr
+       [:th {:col-span 5}
+        [:.Entity__HeaderLabel "movie"]
 
-(comment
-  (d/q '[:find ?e :where [?e :tag "search"]] @conn))
+        [:table.FactOptions
+         [:tbody
+          [:tr
+           [:td [:label.FactOptions__Option
+                 [:input {:type "checkbox" :checked true}]
+                 [:label.FactOptions__OptionName "name"]]]
+           [:td [:label.FactOptions__ExampleValue "Monster War II - The Reckoning"]]]
+          [:tr
+           [:td [:label.FactOptions__Option
+                 [:input {:type "checkbox" :checked true}]
+                 [:label.FactOptions__OptionName "description"]]]
+           [:td [:label.FactOptions__ExampleValue "The monsters are at war again and this time it is serious"]]]
+          [:tr
+           [:td [:label.FactOptions__Option
+                 [:input {:type "checkbox" :checked true}]
+                 [:label.FactOptions__OptionName "rating"]]]
+           [:td [:label.FactOptions__ExampleValue 2.5]]]
+          [:tr
+           [:td [:label.FactOptions__Option
+                 [:input {:type "checkbox" :checked true}]
+                 [:label.FactOptions__OptionName "showtime"]]]
+           [:td [:label.FactOptions__ExampleValue]]]]]]]
 
-(defn app [db]
-  (ui/column {}
-    (searches-view db)
-    (ui/button {:on-click #(create-search)} "new search")))
+      [:tr
+       [:th.Entity__HeaderLabel {:row-span 2} "name"]
+       [:th.Entity__HeaderLabel {:row-span 2} "description"]
+       [:th.Entity__HeaderLabel {:row-span 2} "rating"]
+       [:th {:col-span 2}
+
+        [:.Entity__HeaderLabel "showtime"]
+
+        [:table.FactOptions
+         [:tbody
+          [:tr
+           [:td [:label.FactOptions__Option
+                 [:input {:type "checkbox" :checked true}]
+                 [:label.FactOptions__OptionName "theater"]]]
+           [:td [:label.FactOptions__ExampleValue "ACM"]]]
+          [:tr
+           [:td [:label.FactOptions__Option
+                 [:input {:type "checkbox" :checked true}]
+                 [:label.FactOptions__OptionName "time"]]]
+           [:td [:label.FactOptions__ExampleValue "10:00"]]]]]]]
+      [:tr
+       [:th.Entity__HeaderLabel  "theater"]
+       [:th.Entity__HeaderLabel  "showtime"]]]
+     [:tbody.Entity__Result
+      [:tr
+       [:td {:row-span 3} "Monster War II - The Reckoning"]
+       [:td {:row-span 3} "The monster are at war again"]
+       [:td {:row-span 3} "2.5"]
+       [:td "ACM"]
+       [:td "10:00"]]
+      [:tr
+       [:td "ACM"]
+       [:td "12:00"]]
+      [:tr
+       [:td "ACM"]
+       [:td "13:00"]]]]
+
+    [:div.SearchPlaceholder
+     [:div "search for ..."]
+
+     [:div.SearchPlaceholder__Options
+      [:button.EntityType "movie"]
+      [:button.EntityType "theater"]
+      [:button.EntityType "showtime"]]]]])
 
 ;; APPLICATION SETUP
 
 (defn render [db]
-  (ui/render (app db) (.getElementById js/document "root")))
+  (rum/mount (app db) (.getElementById js/document "root")))
 
 ;; re-render after every db update
 (defonce rerender-listener
