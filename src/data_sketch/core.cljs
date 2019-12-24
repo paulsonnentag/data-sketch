@@ -2,20 +2,23 @@
   (:require [clojure.string :as str]
             [datascript.core :as d]
             [data-sketch.example-data :as example-data]
-            [rum.core :as rum]))
-
-(enable-console-print!)
-
-(def schema {:todo/tags    {:db/cardinality :db.cardinality/many}
-             :todo/project {:db/valueType :db.type/ref}
-             :todo/done    {:db/index true}
-             :todo/due     {:db/index true}
-             :tag          {:db/index true :db/cardinality :db.cardinality/many}})
+            [rum.core :as rum]
+            [cljs.pprint :as pprint]))
 
 
-(defonce conn (d/create-conn schema))
+(def initial-facts (concat example-data/base-facts example-data/movies))
 
-(defonce initial-data (d/transact! conn example-data/movies))
+(defn get-schema [facts]
+  (->> facts
+       (filter #(not (nil? (:db/ident %))))
+       (reduce
+         (fn [schema fact]
+           (assoc schema (:db/ident fact) (dissoc fact :db/ident :db/id)))
+         {})))
+
+(defonce conn (d/create-conn (get-schema initial-facts)))
+
+(defonce initial-data (d/transact! conn initial-facts))
 
 ;; ACTIONS
 
@@ -84,8 +87,8 @@
                  [:label.FactOptions__OptionName "time"]]]
            [:td [:label.FactOptions__ExampleValue "10:00"]]]]]]]
       [:tr
-       [:th.Entity__HeaderLabel  "theater"]
-       [:th.Entity__HeaderLabel  "showtime"]]]
+       [:th.Entity__HeaderLabel "theater"]
+       [:th.Entity__HeaderLabel "showtime"]]]
      [:tbody.Entity__Result
       [:tr
        [:td {:row-span 3} "Monster War II - The Reckoning"]
