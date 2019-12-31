@@ -42,6 +42,10 @@ body {
     display: flex;
 }
 
+.Content {
+    padding: 16px;
+}
+
 .Content > * {
     margin-bottom: 16px;
 }
@@ -83,6 +87,7 @@ body {
 .Entity {
     border: 1px solid var(--border-color);
     border-radius: 3px;
+    max-width: 100%;
 }
 
 .Entity.isCollapsed .FactOptions{
@@ -95,6 +100,8 @@ body {
 
 .Entity th, .Entity__Result td {
     border: 1px solid var(--border-color);
+    white-space: nowrap;
+    overflow: hidden;
 }
 
 .Entity th {

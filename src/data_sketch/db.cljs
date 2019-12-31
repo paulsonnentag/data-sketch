@@ -1,11 +1,17 @@
-(ns data-sketch.example-data)
+(ns data-sketch.db
+  (:require [datascript.core :as d]))
 
 (def base-facts [{:db/ident :ds.kind/name :db/valueType :db.type/string}
-                 {:db/ident :ds.kind/attribute :db/valueType :db.type/ref}
-                 {:db/ident :ds/refKind :db/valueType :db.type/ref :db/cardinality :db.cardinality/many}])
+                 {:db/ident :ds.kind/attribute :db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
 
+                 {:db/ident :ds/refKind :db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
 
-(def movies
+                 {:db/ident :ds.query/kind :db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
+                 {:db/ident :ds.query/column :db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
+
+                 {:db/ident :ds.column/value :db/valueType :db.type/ref :db/cardinality :db.cardinality/one}])
+
+(def movie-dataset
   (let [[movie, movie-title, movie-category, movie-description, movie-rating,
          theater, theater-name,
          showtime, showtime-time, showtime-theater, showtime-movie
@@ -68,7 +74,8 @@
 
      {:db/id        theater
       :ds.kind/name "Theater"
-      :ds.kind/attribute [theater-name]}
+      :ds.kind/attribute [theater-name]
+      }
 
      {:db/id          theater-name
       :db/ident       :theater/name
@@ -94,7 +101,8 @@
 
      {:db/id        showtime
       :ds.kind/name "Showtime"
-      :ds.kind/attribute [showtime-time]}
+      :ds.kind/attribute [showtime-time]
+      }
 
      {:db/id          showtime-time
       :db/ident       :showtime/time
@@ -105,13 +113,13 @@
       :db/ident       :showtime/movie
       :db/valueType   :db.type/ref
       :db/cardinality :db.cardinality/one
-      :ds/refKind movie}
+      :ds/refKind     movie}
 
      {:db/id          showtime-theater
       :db/ident       :showtime/theater
       :db/valueType   :db.type/ref
       :db/cardinality :db.cardinality/one
-      :ds/refKind theater}
+      :ds/refKind     theater}
 
      {:showtime/time    "11:55"
       :showtime/theater old-joes
@@ -403,7 +411,7 @@
       :db/ident       :review/movie
       :db/valueType   :db.type/ref
       :db/cardinality :db.cardinality/one
-      :ds/refKind movie}
+      :ds/refKind     movie}
      {:db/id          review-quote,
       :db/ident       :review/quote
       :db/valueType   :db.type/string
@@ -441,13 +449,14 @@
 
      {:db/id        credit
       :ds.kind/name "Credit"
-      :ds.kind/attribute [credit-movie, credit-name]}
+      :ds.kind/attribute [credit-movie, credit-name]
+      }
 
      {:db/id          credit-movie,
       :db/ident       :credit/movie
       :db/valueType   :db.type/ref
       :db/cardinality :db.cardinality/one
-      :ds/refKind movie}
+      :ds/refKind     movie}
      {:db/id          credit-name,
       :db/ident       :credit/name
       :db/valueType   :db.type/string
@@ -497,57 +506,72 @@
       :credit/movie little-schemer}]
     ))
 
-(def todo [; projects
-           {:db/id        -1
-            :ds/tag       "project"
-            :project/name "datascript"}
-           {:db/id        -2
-            :ds/tag       "project"
-            :project/name "nyc-webinar"}
-           {:db/id        -3
-            :ds/tag       "project"
-            :project/name "shopping"}
+(def todo-dataset [; projects
+                   {:db/id        -1
+                    :ds/tag       "project"
+                    :project/name "datascript"}
+                   {:db/id        -2
+                    :ds/tag       "project"
+                    :project/name "nyc-webinar"}
+                   {:db/id        -3
+                    :ds/tag       "project"
+                    :project/name "shopping"}
 
-           ; todos
-           {:ds/tag       "todo"
-            :todo/text    "Displaying list of todos"
-            :todo/tags    ["listen" "query"]
-            :todo/project -2
-            :todo/done    true
-            :todo/due     "2014-12-13"}
-           {:ds/tag       "todo"
-            :todo/text    "Persisting to localStorage"
-            :todo/tags    ["listen" "serialization" "transact"]
-            :todo/project -2
-            :todo/done    true
-            :todo/due     "2014-12-13"}
-           {:ds/tag       "todo"
-            :todo/text    "Make task completable"
-            :todo/tags    ["transact" "funs"]
-            :todo/project -2
-            :todo/done    false
-            :todo/due     "2014-12-13"}
-           {:ds/tag       "todo"
-            :todo/text    "Fix fn calls on emtpy rels"
-            :todo/tags    ["bug" "funs" "query"]
-            :todo/project -1
-            :todo/done    false
-            :todo/due     "2015-01-01"}
-           {:ds/tag       "todo"
-            :todo/text    "Add db filtering"
-            :todo/project -1
-            :todo/done    false
-            :todo/due     "2015-05-30"}
-           {:ds/tag       "todo"
-            :todo/text    "Soap"
-            :todo/project -3
-            :todo/done    false
-            :todo/due     "2015-05-01"}
-           {:ds/tag       "todo"
-            :todo/text    "Cake"
-            :todo/done    false
-            :todo/project -3}
-           {:ds/tag    "todo"
-            :todo/text "Just a task" :todo/done false}
-           {:ds/tag    "todo"
-            :todo/text "Another incomplete task" :todo/done false}])
+                   ; todos
+                   {:todo/text    "Displaying list of todos"
+                    :todo/tags    ["listen" "query"]
+                    :todo/project -2
+                    :todo/done    true
+                    :todo/due     "2014-12-13"}
+                   {:todo/text    "Persisting to localStorage"
+                    :todo/tags    ["listen" "serialization" "transact"]
+                    :todo/project -2
+                    :todo/done    true
+                    :todo/due     "2014-12-13"}
+                   {:todo/text    "Make task completable"
+                    :todo/tags    ["transact" "funs"]
+                    :todo/project -2
+                    :todo/done    false
+                    :todo/due     "2014-12-13"}
+                   {:todo/text    "Fix fn calls on emtpy rels"
+                    :todo/tags    ["bug" "funs" "query"]
+                    :todo/project -1
+                    :todo/done    false
+                    :todo/due     "2015-01-01"}
+                   {:todo/text    "Add db filtering"
+                    :todo/project -1
+                    :todo/done    false
+                    :todo/due     "2015-05-30"}
+                   {:todo/text    "Soap"
+                    :todo/project -3
+                    :todo/done    false
+                    :todo/due     "2015-05-01"}
+                   {:todo/text    "Cake"
+                    :todo/done    false
+                    :todo/project -3}
+                   {:todo/text "Just a task"
+                    :todo/done false}
+                   {:ds/tag    "todo"
+                    :todo/text "Another incomplete task"
+                    :todo/done false}])
+
+
+(def initial-facts (concat base-facts movie-dataset))
+
+(defn get-schema [facts]
+  (->> facts
+       (filter #(not (nil? (:db/ident %))))
+       (reduce
+         (fn [schema fact]
+           (let [attribute-id (:db/ident fact)
+                 attribute-fact (cond-> (dissoc fact :db/ident :db/id)
+                                        (not= (:db/valueType fact) :db.type/ref) (dissoc :db/valueType))]
+
+
+             (assoc schema attribute-id attribute-fact)))
+         {})))
+
+
+(defonce conn (d/create-conn (get-schema initial-facts)))
+
+(defonce initial-data (d/transact! conn initial-facts))

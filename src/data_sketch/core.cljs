@@ -1,141 +1,228 @@
 (ns data-sketch.core
-  (:require [clojure.string :as str]
-            [datascript.core :as d]
-            [data-sketch.example-data :as example-data]
-            [rum.core :as rum]
-            [cljs.pprint :as pprint]))
+  (:require [datascript.core :as d]
+            [data-sketch.db :as db :refer [conn]]
+            [reagent.core :as r]
+            [posh.reagent :as p]))
 
-
-(def initial-facts (concat example-data/base-facts example-data/movies))
-
-(defn get-schema [facts]
-  (->> facts
-       (filter #(not (nil? (:db/ident %))))
-       (reduce
-         (fn [schema fact]
-           (assoc schema (:db/ident fact) (dissoc fact :db/ident :db/id)))
-         {})))
-
-(defonce conn (d/create-conn (get-schema initial-facts)))
-
-(defonce initial-data (d/transact! conn initial-facts))
 
 ;; ACTIONS
 
-(defn create-search []
-  (let [datom {:tag "search"}]
-    (d/transact! conn [datom])))
+(defn create-query [conn kind-id]
+  (p/transact! conn [{:ds.query/kind kind-id}]))
 
-(defn delete-search [search]
-  (print "delete-search" search)
-  (d/transact! conn [[:db.fn/retractEntity search]]))
+(defn add-attribute-column [conn query-id attribute-id]
+  (p/transact! conn [{:db/id           -1
+                      :ds.column/value attribute-id}
+                     [:db/add query-id :ds.query/column -1]]))
+
+(defn retract-entities [conn entity-ids]
+  (let [retractions (map (fn [entity-id]
+                           [:db/retractEntity entity-id])
+                         entity-ids)]
+    (p/transact! conn retractions)))
 
 ;; VIEWS
 
-(rum/defc app [db]
-  [:div
-   [:h1 "Movies example"]
+(p/posh! conn)
 
-   [:.Content
-    [:table.Entity
-     [:thead
-      [:tr
-       [:th {:col-span 5}
-        [:.Entity__HeaderLabel "movie"]
-
-        [:table.FactOptions
-         [:tbody
-          [:tr
-           [:td [:label.FactOptions__Option
-                 [:input {:type "checkbox" :checked true}]
-                 [:label.FactOptions__OptionName "name"]]]
-           [:td [:label.FactOptions__ExampleValue "Monster War II - The Reckoning"]]]
-          [:tr
-           [:td [:label.FactOptions__Option
-                 [:input {:type "checkbox" :checked true}]
-                 [:label.FactOptions__OptionName "description"]]]
-           [:td [:label.FactOptions__ExampleValue "The monsters are at war again and this time it is serious"]]]
-          [:tr
-           [:td [:label.FactOptions__Option
-                 [:input {:type "checkbox" :checked true}]
-                 [:label.FactOptions__OptionName "rating"]]]
-           [:td [:label.FactOptions__ExampleValue 2.5]]]
-          [:tr
-           [:td [:label.FactOptions__Option
-                 [:input {:type "checkbox" :checked true}]
-                 [:label.FactOptions__OptionName "showtime"]]]
-           [:td [:label.FactOptions__ExampleValue]]]]]]]
-
-      [:tr
-       [:th.Entity__HeaderLabel {:row-span 2} "name"]
-       [:th.Entity__HeaderLabel {:row-span 2} "description"]
-       [:th.Entity__HeaderLabel {:row-span 2} "rating"]
-       [:th {:col-span 2}
-
-        [:.Entity__HeaderLabel "showtime"]
-
-        [:table.FactOptions
-         [:tbody
-          [:tr
-           [:td [:label.FactOptions__Option
-                 [:input {:type "checkbox" :checked true}]
-                 [:label.FactOptions__OptionName "theater"]]]
-           [:td [:label.FactOptions__ExampleValue "ACM"]]]
-          [:tr
-           [:td [:label.FactOptions__Option
-                 [:input {:type "checkbox" :checked true}]
-                 [:label.FactOptions__OptionName "time"]]]
-           [:td [:label.FactOptions__ExampleValue "10:00"]]]]]]]
-      [:tr
-       [:th.Entity__HeaderLabel "theater"]
-       [:th.Entity__HeaderLabel "showtime"]]]
-     [:tbody.Entity__Result
-      [:tr
-       [:td {:row-span 3} "Monster War II - The Reckoning"]
-       [:td {:row-span 3} "The monster are at war again"]
-       [:td {:row-span 3} "2.5"]
-       [:td "ACM"]
-       [:td "10:00"]]
-      [:tr
-       [:td "ACM"]
-       [:td "12:00"]]
-      [:tr
-       [:td "ACM"]
-       [:td "13:00"]]]]
-
+(defn new-search [conn]
+  (let [kinds @(p/q '[:find ?kind ?name
+                      :in $
+                      :where [?kind :ds.kind/name ?name]] conn)]
     [:div.SearchPlaceholder
      [:div "search for ..."]
 
      [:div.SearchPlaceholder__Options
-      [:button.EntityType "movie"]
-      [:button.EntityType "theater"]
-      [:button.EntityType "showtime"]]]]])
+      (map
+        (fn [[kind-id name]]
+          [:button.EntityType
+           {:key      kind-id
+            :on-click #(create-query conn kind-id)}
+           name])
+        kinds)]]))
+
+(defn attribute-option [conn query-id attribute-id]
+  (let [{attribute-key :db/ident} @(p/pull conn '[:db/ident] attribute-id)
+        attribute-column-ids (-> @(p/q '[:find ?column
+                                         :in $ ?query-id ?attribute-id
+                                         :where
+                                         [?query-id :ds.query/column ?column]
+                                         [?column :ds.column/value ?attribute-id]] conn query-id attribute-id)
+                                 first)
+        is-selected (not (empty? attribute-column-ids))]
+    [:tr
+     [:td [:label.FactOptions__Option
+           [:input {:type      "checkbox"
+                    :checked   is-selected
+                    :on-change #(if is-selected
+                                  (retract-entities conn attribute-column-ids)
+                                  (add-attribute-column conn query-id attribute-id))}]
+           [:label.FactOptions__OptionName (name attribute-key)]]]
+     [:td [:label.FactOptions__ExampleValue ""]]]))
+
+(defn column-header [conn column-id]
+  (let [column @(p/pull conn '[{:ds.column/value [:db/ident]}] column-id)
+        column-name (-> column
+                        (get-in [:ds.column/value :db/ident])
+                        (name))]
+    [:th.Entity__HeaderLabel column-name]))
+
+
+(defn query-result [conn column-ids]
+  (if (= (count column-ids) 0)
+    [:tbody.Entity__Result]
+
+    (let [columns @(p/pull-many conn '[{:ds.column/value [:db/ident]}] column-ids)
+
+          variables (map (fn [{{attribute-name :db/ident} :ds.column/value}]
+                           {:name           (symbol (str "?" (name attribute-name)))
+                            :attribute-name attribute-name}) columns)
+
+          query (-> '(:find ?entity)
+                    (concat (map :name variables))
+                    (concat '(:in $))
+                    (concat '(:where))
+                    (concat (map (fn [variable]
+                                   ['?entity (:attribute-name variable) (:name variable)])
+                                 variables))
+                    (vec))
+
+
+
+          rows (->> @(p/q query conn)
+                   (map rest))]
+
+      [:tbody.Entity__Result
+       (map-indexed
+         (fn [i row]
+           ^{:key i} [:tr
+                      (map-indexed
+                        (fn [j value]
+                          ^{:key j} [:td {:title value} value])
+                        row)])
+         rows)])))
+
+
+
+
+(comment
+
+  @(p/q '[:find ?entity ?title ?category ?description
+          :in $
+          :where
+          [?entity :movie/title ?title]
+          [?entity :movie/category ?category]
+          [?entity :movie/description ?description]] conn))
+
+(defn query-view [conn query-id kind-id]
+  (let [kind @(p/pull conn '[:ds.kind/name :ds.kind/attribute] kind-id)
+        query @(p/pull conn '[:ds.query/column] query-id)
+        column-ids (map :db/id (:ds.query/column query))
+        attribute-ids (map :db/id (:ds.kind/attribute kind))]
+    [:table.Entity
+     [:thead
+      [:tr
+       [:th {:col-span (count column-ids)}
+        [:div.Entity__HeaderLabel (:ds.kind/name kind)]
+
+        [:table.FactOptions
+         [:tbody
+          (map (fn [attribute-id]
+                 ^{:key attribute-id} [attribute-option conn query-id attribute-id])
+               attribute-ids)]]]]
+      [:tr
+       (map (fn [column-id]
+              ^{:key column-id} [column-header conn column-id]) column-ids)]]
+     [query-result conn column-ids]]))
+
+(defn queries-view [conn]
+  (let [queries @(p/q '[:find ?query ?kind
+                        :in $
+                        :where [?query :ds.query/kind ?kind]] conn)]
+    [:<> (map
+           (fn [[query-id kind-id]]
+             ^{:key query-id} [query-view conn query-id kind-id])
+           queries)]))
+
+(defn app [conn]
+  [:div.Content
+
+   [:h1 "Movies example"]
+
+   [queries-view conn]
+
+   [new-search conn]
+
+   #_[:table.Entity
+      [:thead
+       [:tr
+        [:th {:col-span 5}
+         [:.Entity__HeaderLabel "movie"]
+
+         [:table.FactOptions
+          [:tbody
+           [:tr
+            [:td [:label.FactOptions__Option
+                  [:input {:type "checkbox" :checked true}]
+                  [:label.FactOptions__OptionName "name"]]]
+            [:td [:label.FactOptions__ExampleValue "Monster War II - The Reckoning"]]]
+           [:tr
+            [:td [:label.FactOptions__Option
+                  [:input {:type "checkbox" :checked true}]
+                  [:label.FactOptions__OptionName "description"]]]
+            [:td [:label.FactOptions__ExampleValue "The monsters are at war again and this time it is serious"]]]
+           [:tr
+            [:td [:label.FactOptions__Option
+                  [:input {:type "checkbox" :checked true}]
+                  [:label.FactOptions__OptionName "rating"]]]
+            [:td [:label.FactOptions__ExampleValue 2.5]]]
+           [:tr
+            [:td [:label.FactOptions__Option
+                  [:input {:type "checkbox" :checked true}]
+                  [:label.FactOptions__OptionName "showtime"]]]
+            [:td [:label.FactOptions__ExampleValue]]]]]]]
+
+       [:tr
+        [:th.Entity__HeaderLabel {:row-span 2} "name"]
+        [:th.Entity__HeaderLabel {:row-span 2} "description"]
+        [:th.Entity__HeaderLabel {:row-span 2} "rating"]
+        [:th {:col-span 2}
+
+         [:.Entity__HeaderLabel "showtime"]
+
+         [:table.FactOptions
+          [:tbody
+           [:tr
+            [:td [:label.FactOptions__Option
+                  [:input {:type "checkbox" :checked true}]
+                  [:label.FactOptions__OptionName "theater"]]]
+            [:td [:label.FactOptions__ExampleValue "ACM"]]]
+           [:tr
+            [:td [:label.FactOptions__Option
+                  [:input {:type "checkbox" :checked true}]
+                  [:label.FactOptions__OptionName "time"]]]
+            [:td [:label.FactOptions__ExampleValue "10:00"]]]]]]]
+       [:tr
+        [:th.Entity__HeaderLabel "theater"]
+        [:th.Entity__HeaderLabel "showtime"]]]
+      [:tbody.Entity__Result
+       [:tr
+        [:td {:row-span 3} "Monster War II - The Reckoning"]
+        [:td {:row-span 3} "The monster are at war again"]
+        [:td {:row-span 3} "2.5"]
+        [:td "ACM"]
+        [:td "10:00"]]
+       [:tr
+        [:td "ACM"]
+        [:td "12:00"]]
+       [:tr
+        [:td "ACM"]
+        [:td "13:00"]]]]])
 
 ;; APPLICATION SETUP
 
-(defn render [db]
-  (rum/mount (app db) (.getElementById js/document "root")))
+(defn start [conn]
+  (r/render-component [app conn] (.getElementById js/document "root")))
 
-;; re-render after every db update
-(defonce rerender-listener
-         (d/listen! conn :render
-                    (fn [transaction-report]
-                      (render (:db-after transaction-report)))))
+(start conn)
 
-(defn datom->str [d]
-  (str (if (:added d) "+" "−")
-       "[" (:e d) " " (:a d) " " (pr-str (:v d)) "]"))
-
-(defn print-transaction [tx-report]
-  (let [tx-id (get-in tx-report [:tempids :db/current-tx])
-        datoms (:tx-data tx-report)]
-    (println
-      (str/join "\n" (concat [(str "tx " tx-id ":")] (map datom->str datoms))))))
-
-;; log all transactions
-(defonce print-listener
-         (d/listen! conn :log print-transaction))
-
-
-;; mount application
-(render @conn)
