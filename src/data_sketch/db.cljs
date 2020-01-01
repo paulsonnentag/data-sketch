@@ -7,9 +7,7 @@
                  {:db/ident :ds/refKind :db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
 
                  {:db/ident :ds.query/kind :db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
-                 {:db/ident :ds.query/column :db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
-
-                 {:db/ident :ds.column/value :db/valueType :db.type/ref :db/cardinality :db.cardinality/one}])
+                 {:db/ident :ds.query/column :db/valueType :db.type/ref :db/cardinality :db.cardinality/many}])
 
 (def movie-dataset
   (let [[movie, movie-title, movie-category, movie-description, movie-rating,

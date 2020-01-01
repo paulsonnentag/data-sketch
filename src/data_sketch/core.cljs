@@ -10,10 +10,8 @@
 (defn create-query [conn kind-id]
   (p/transact! conn [{:ds.query/kind kind-id}]))
 
-(defn add-attribute-column [conn query-id attribute-id]
-  (p/transact! conn [{:db/id           -1
-                      :ds.column/value attribute-id}
-                     [:db/add query-id :ds.query/column -1]]))
+(defn add-column [conn query-id attribute-id]
+  (p/transact! conn [[:db/add query-id :ds.query/column attribute-id]]))
 
 (defn retract-entities [conn entity-ids]
   (let [retractions (map (fn [entity-id]
@@ -43,11 +41,10 @@
 
 (defn attribute-option [conn query-id attribute-id]
   (let [{attribute-key :db/ident} @(p/pull conn '[:db/ident] attribute-id)
-        attribute-column-ids (-> @(p/q '[:find ?column
+        attribute-column-ids (-> @(p/q '[:find ?attribute-id
                                          :in $ ?query-id ?attribute-id
                                          :where
-                                         [?query-id :ds.query/column ?column]
-                                         [?column :ds.column/value ?attribute-id]] conn query-id attribute-id)
+                                         [?query-id :ds.query/column ?attribute-id]] conn query-id attribute-id)
                                  first)
         is-selected (not (empty? attribute-column-ids))]
     [:tr
@@ -56,69 +53,57 @@
                     :checked   is-selected
                     :on-change #(if is-selected
                                   (retract-entities conn attribute-column-ids)
-                                  (add-attribute-column conn query-id attribute-id))}]
+                                  (add-column conn query-id attribute-id))}]
            [:label.FactOptions__OptionName (name attribute-key)]]]
      [:td [:label.FactOptions__ExampleValue ""]]]))
 
 (defn column-header [conn column-id]
-  (let [column @(p/pull conn '[{:ds.column/value [:db/ident]}] column-id)
-        column-name (-> column
-                        (get-in [:ds.column/value :db/ident])
-                        (name))]
+  (let [column @(p/pull conn '[:db/ident] column-id)
+        column-name (-> column :db/ident name)]
     [:th.Entity__HeaderLabel column-name]))
 
 
-(defn query-result [conn column-ids]
-  (if (= (count column-ids) 0)
-    [:tbody.Entity__Result]
+(defn query-result [conn query-id]
+  (let [query @(p/pull conn '[:ds.query/column] query-id)
+        column-ids (map :db/id (:ds.query/column query))]
 
-    (let [columns @(p/pull-many conn '[{:ds.column/value [:db/ident]}] column-ids)
+    (if (= (count column-ids) 0)
+      [:tbody.Entity__Result]
 
-          variables (map (fn [{{attribute-name :db/ident} :ds.column/value}]
-                           {:name           (symbol (str "?" (name attribute-name)))
-                            :attribute-name attribute-name}) columns)
+      (let [columns @(p/pull-many conn '[:db/ident] column-ids)
 
-          query (-> '(:find ?entity)
-                    (concat (map :name variables))
-                    (concat '(:in $))
-                    (concat '(:where))
-                    (concat (map (fn [variable]
-                                   ['?entity (:attribute-name variable) (:name variable)])
-                                 variables))
-                    (vec))
+            variables (map (fn [{attribute-name :db/ident}]
+                             {:name           (symbol (str "?" (name attribute-name)))
+                              :attribute-name attribute-name}) columns)
 
+            query (-> '(:find ?entity)
+                      (concat (map :name variables))
+                      (concat '(:in $))
+                      (concat '(:where))
+                      (concat (map (fn [variable]
+                                     ['?entity (:attribute-name variable) (:name variable)])
+                                   variables))
+                      (vec))
 
+            rows (map rest @(p/q query conn))]
 
-          rows (->> @(p/q query conn)
-                   (map rest))]
+        (print query)
+        [:tbody.Entity__Result
+         (map-indexed
+           (fn [i row]
+             ^{:key i} [:tr
+                        (map-indexed
+                          (fn [j value]
+                            ^{:key j} [:td {:title value} value])
+                          row)])
+           rows)]))))
 
-      [:tbody.Entity__Result
-       (map-indexed
-         (fn [i row]
-           ^{:key i} [:tr
-                      (map-indexed
-                        (fn [j value]
-                          ^{:key j} [:td {:title value} value])
-                        row)])
-         rows)])))
-
-
-
-
-(comment
-
-  @(p/q '[:find ?entity ?title ?category ?description
-          :in $
-          :where
-          [?entity :movie/title ?title]
-          [?entity :movie/category ?category]
-          [?entity :movie/description ?description]] conn))
 
 (defn query-view [conn query-id kind-id]
   (let [kind @(p/pull conn '[:ds.kind/name :ds.kind/attribute] kind-id)
+        attribute-ids (map :db/id (:ds.kind/attribute kind))
         query @(p/pull conn '[:ds.query/column] query-id)
-        column-ids (map :db/id (:ds.query/column query))
-        attribute-ids (map :db/id (:ds.kind/attribute kind))]
+        column-ids (map :db/id (:ds.query/column query))]
     [:table.Entity
      [:thead
       [:tr
@@ -133,7 +118,7 @@
       [:tr
        (map (fn [column-id]
               ^{:key column-id} [column-header conn column-id]) column-ids)]]
-     [query-result conn column-ids]]))
+     [query-result conn query-id]]))
 
 (defn queries-view [conn]
   (let [queries @(p/q '[:find ?query ?kind
