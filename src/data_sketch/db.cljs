@@ -17,7 +17,7 @@
 
                       {:db/ident       :ds/ref-kind
                        :db/valueType   :db.type/ref
-                       :db/cardinality :db.cardinality/many}
+                       :db/cardinality :db.cardinality/one}
 
 
                       ; search
@@ -65,7 +65,7 @@
      ;---  MOVIE
 
      {:db/id             movie
-      :ds.kind/name      "Movie"
+      :ds.kind/name      "movie"
       :ds.kind/attribute [movie-title, movie-category, movie-description, movie-rating]}
 
      {:db/id          movie-title
@@ -114,7 +114,7 @@
      ;-- THEATER
 
      {:db/id             theater
-      :ds.kind/name      "Theater"
+      :ds.kind/name      "theater"
       :ds.kind/attribute [theater-name]
       }
 
@@ -141,8 +141,8 @@
      ;--- SHOWTIME
 
      {:db/id             showtime
-      :ds.kind/name      "Showtime"
-      :ds.kind/attribute [showtime-time]
+      :ds.kind/name      "showtime"
+      :ds.kind/attribute [showtime-time showtime-movie showtime-theater]
       }
 
      {:db/id          showtime-time
@@ -441,7 +441,7 @@
 
      ;--- REVIEW
      {:db/id             review
-      :ds.kind/name      "Review"
+      :ds.kind/name      "review"
       :ds.kind/attribute [review-author, review-movie, review-quote]}
 
      {:db/id          review-author,
@@ -489,7 +489,7 @@
      ;--- CREDIT
 
      {:db/id             credit
-      :ds.kind/name      "Credit"
+      :ds.kind/name      "credit"
       :ds.kind/attribute [credit-movie, credit-name]
       }
 

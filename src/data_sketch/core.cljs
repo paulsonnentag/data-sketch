@@ -52,9 +52,9 @@
         kinds)]]))
 
 (defn attribute-option [conn variable-id attribute-id]
-  (let [attribute @(p/pull conn '[:db/ident :ds.ref-kind] attribute-id)
+  (let [attribute @(p/pull conn '[:db/ident :ds/ref-kind] attribute-id)
         attribute-name (-> attribute :db/ident name)
-        ref-kind-id (:ds.ref-kind attribute)
+        ref-kind-id (-> attribute :ds/ref-kind :db/id)
         existing-relationship-ids (->> @(p/q '[:find ?relationship-id
                                                :in $ ?variable-id ?attribute-id
                                                :where
@@ -74,27 +74,58 @@
      [:td [:label.FactOptions__ExampleValue ""]]]))
 
 
+(defn header-column [conn {:keys [variable-id relationship-id]}]
+  (let [variable @(p/pull conn '[{:ds.variable/kind [:ds.kind/name :ds.kind/attribute]}] variable-id)
+        relationship @(p/pull conn '[{:ds.relationship/attribute [:db/ident]}] relationship-id)
+        kind (:ds.variable/kind variable)
+        column-name (or (:ds.kind/name kind)
+                        (-> relationship :ds.relationship/attribute :db/ident name))
+        attribute-ids (->> kind :ds.kind/attribute (map :db/id))]
+    [:th
+     [:div.Entity__HeaderLabel column-name]
+
+     [:table.FactOptions
+      [:tbody
+       (map (fn [attribute-id]
+              ^{:key attribute-id} [attribute-option conn variable-id attribute-id]) attribute-ids)]]]))
+
+
+(defn get-connected-columns [columns]
+  (->> columns
+       (map
+         (fn [{:keys [variable-id]}]
+           (let [connected-columns
+                 (->> @(p/q '[:find ?connected-var ?rel
+                              :in $ ?var
+                              :where
+                              [?rel :ds.relationship/from ?var]
+                              [?rel :ds.relationship/to ?connected-var]] conn variable-id)
+                      (map (fn [[var-id rel-id]]
+                             {:variable-id     var-id
+                              :relationship-id rel-id})))]
+             connected-columns)))
+       (flatten)))
+
+(defn header-view [conn columns]
+  (let [connected-columns (get-connected-columns columns)
+        header-row [:tr
+                    (map (fn [column]
+                           ^{:key (:variable-id column)} [header-column conn column])
+                         columns)]]
+    (if (empty? connected-columns)
+      header-row
+      [:<>
+       header-row
+       [header-view conn connected-columns]])))
+
+
 (defn search-view [conn search-id]
-  (let [search @(p/pull conn '[{:ds.search/variable [{:ds.variable/kind [*]}]}] search-id)
-        variable-id (-> search :ds.search/variable :db/id)
-        kind (-> search :ds.search/variable :ds.variable/kind)
-        kind-name (:ds.kind/name kind)
-        kind-attribute-ids (->> kind
-                                :ds.kind/attribute
-                                (map :db/id))]
+  (let [search @(p/pull conn '[:ds.search/variable] search-id)
+        variable-id (-> search :ds.search/variable :db/id)]
 
     [:table.Entity
      [:thead
-      [:tr
-       [:th
-
-        [:div.Entity__HeaderLabel kind-name]
-
-        [:table.FactOptions
-         [:tbody
-          (map (fn [attribute-id]
-                 ^{:key attribute-id} [attribute-option conn variable-id attribute-id])
-               kind-attribute-ids)]]]]]]))
+      [header-view conn [{:variable-id variable-id}] nil]]]))
 
 (defn searches-view [conn]
   (let [searches @(p/q '[:find ?search
