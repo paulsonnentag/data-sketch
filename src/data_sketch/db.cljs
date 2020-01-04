@@ -1,13 +1,56 @@
 (ns data-sketch.db
   (:require [datascript.core :as d]))
 
-(def base-facts [{:db/ident :ds.kind/name :db/valueType :db.type/string}
-                 {:db/ident :ds.kind/attribute :db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
+(def base-attributes [
+                      ; kind
 
-                 {:db/ident :ds/refKind :db/valueType :db.type/ref :db/cardinality :db.cardinality/many}
+                      {:db/ident       :ds.kind/name
+                       :db/valueType   :db.type/string
+                       :db/cardinality :db.cardinality/one}
 
-                 {:db/ident :ds.query/kind :db/valueType :db.type/ref :db/cardinality :db.cardinality/one}
-                 {:db/ident :ds.query/column :db/valueType :db.type/ref :db/cardinality :db.cardinality/many}])
+                      {:db/ident       :ds.kind/attribute
+                       :db/valueType   :db.type/ref
+                       :db/cardinality :db.cardinality/many}
+
+
+                      ; ref-kind
+
+                      {:db/ident       :ds/ref-kind
+                       :db/valueType   :db.type/ref
+                       :db/cardinality :db.cardinality/many}
+
+
+                      ; search
+
+                      {:db/ident       :ds.search/name
+                       :db/valueType   :db.type/ref
+                       :db/cardinality :db.cardinality/one}
+
+                      {:db/ident       :ds.search/variable
+                       :db/valueType   :db.type/ref
+                       :db/cardinality :db.cardinality/one}
+
+
+                      ; variable
+
+                      {:db/ident       :ds.variable/kind
+                       :db/valueType   :db.type/ref
+                       :db/cardinality :db.cardinality/one}
+
+
+                      ; relationship
+
+                      {:db/ident       :ds.relationship/from
+                       :db/valueType   :db.type/ref
+                       :db/cardinality :db.cardinality/one}
+
+                      {:db/ident       :ds.relationship/to
+                       :db/valueType   :db.type/ref
+                       :db/cardinality :db.cardinality/one}
+
+                      {:db/ident       :ds.relationship/attribute
+                       :db/valueType   :db.type/ref
+                       :db/cardinality :db.cardinality/one}])
 
 (def movie-dataset
   (let [[movie, movie-title, movie-category, movie-description, movie-rating,
@@ -21,8 +64,8 @@
     [
      ;---  MOVIE
 
-     {:db/id        movie
-      :ds.kind/name "Movie"
+     {:db/id             movie
+      :ds.kind/name      "Movie"
       :ds.kind/attribute [movie-title, movie-category, movie-description, movie-rating]}
 
      {:db/id          movie-title
@@ -70,8 +113,8 @@
 
      ;-- THEATER
 
-     {:db/id        theater
-      :ds.kind/name "Theater"
+     {:db/id             theater
+      :ds.kind/name      "Theater"
       :ds.kind/attribute [theater-name]
       }
 
@@ -97,8 +140,8 @@
 
      ;--- SHOWTIME
 
-     {:db/id        showtime
-      :ds.kind/name "Showtime"
+     {:db/id             showtime
+      :ds.kind/name      "Showtime"
       :ds.kind/attribute [showtime-time]
       }
 
@@ -111,13 +154,13 @@
       :db/ident       :showtime/movie
       :db/valueType   :db.type/ref
       :db/cardinality :db.cardinality/one
-      :ds/refKind     movie}
+      :ds/ref-kind     movie}
 
      {:db/id          showtime-theater
       :db/ident       :showtime/theater
       :db/valueType   :db.type/ref
       :db/cardinality :db.cardinality/one
-      :ds/refKind     theater}
+      :ds/ref-kind     theater}
 
      {:showtime/time    "11:55"
       :showtime/theater old-joes
@@ -397,8 +440,8 @@
       :showtime/movie   little-schemer}
 
      ;--- REVIEW
-     {:db/id        review
-      :ds.kind/name "Review"
+     {:db/id             review
+      :ds.kind/name      "Review"
       :ds.kind/attribute [review-author, review-movie, review-quote]}
 
      {:db/id          review-author,
@@ -409,7 +452,7 @@
       :db/ident       :review/movie
       :db/valueType   :db.type/ref
       :db/cardinality :db.cardinality/one
-      :ds/refKind     movie}
+      :ds/ref-kind     movie}
      {:db/id          review-quote,
       :db/ident       :review/quote
       :db/valueType   :db.type/string
@@ -445,8 +488,8 @@
 
      ;--- CREDIT
 
-     {:db/id        credit
-      :ds.kind/name "Credit"
+     {:db/id             credit
+      :ds.kind/name      "Credit"
       :ds.kind/attribute [credit-movie, credit-name]
       }
 
@@ -454,7 +497,7 @@
       :db/ident       :credit/movie
       :db/valueType   :db.type/ref
       :db/cardinality :db.cardinality/one
-      :ds/refKind     movie}
+      :ds/ref-kind     movie}
      {:db/id          credit-name,
       :db/ident       :credit/name
       :db/valueType   :db.type/string
@@ -554,7 +597,7 @@
                     :todo/done false}])
 
 
-(def initial-facts (concat base-facts movie-dataset))
+(def initial-facts (concat base-attributes movie-dataset))
 
 (defn get-schema [facts]
   (->> facts
